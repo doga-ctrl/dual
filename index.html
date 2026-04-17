@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Type Dual — Design Perception Games</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --canvas-bg: #F5F5F5;
+    --artboard-bg: #FFFFFF;
+    --ink: #1E1E1E;
+    --mid: #8E8E8E;
+    --line: #E5E5E5;
+    --accent-blue: #0D99FF;
+    --mono: 'DM Mono', monospace;
+    --serif: 'Playfair Display', serif;
+  }
+
+  body {
+    background-color: var(--artboard-bg);
+    color: var(--ink);
+    font-family: var(--mono);
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background-image: radial-gradient(var(--line) 1px, transparent 0);
+    background-size: 20px 20px;
+  }
+
+  /* HEADER */
+  header {
+    padding: 16px 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--line);
+    background: var(--artboard-bg);
+    flex-shrink: 0;
+  }
+
+  .logo {
+    font-family: var(--serif);
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    line-height: 1;
+  }
+
+  .logo span { font-style: italic; opacity: 0.45; }
+
+  .tagline {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--mid);
+  }
+
+  /* MAIN */
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0 48px;
+    gap: 56px;
+  }
+
+  /* HERO TITLE */
+  .hero-title {
+    font-family: var(--serif);
+    font-size: clamp(52px, 7vw, 112px);
+    font-weight: 400;
+    line-height: 1.0;
+    letter-spacing: -2px;
+    text-align: center;
+  }
+
+  .hero-title em {
+    font-style: italic;
+    color: var(--accent-blue);
+  }
+
+  /* GAME LIST */
+  .game-list {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 640px;
+    border: 1px solid var(--line);
+    background: var(--line);
+    gap: 1px;
+  }
+
+  .game-item {
+    background: var(--artboard-bg);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 28px;
+    text-decoration: none;
+    color: var(--ink);
+    transition: background 0.12s;
+  }
+
+  .game-item:hover {
+    background: var(--ink);
+    color: var(--artboard-bg);
+  }
+
+  .game-item:hover .game-num,
+  .game-item:hover .game-tag {
+    color: rgba(255,255,255,0.35);
+    border-color: rgba(255,255,255,0.2);
+  }
+
+  .game-item.disabled {
+    pointer-events: none;
+    opacity: 0.3;
+  }
+
+  .game-item-left {
+    display: flex;
+    align-items: baseline;
+    gap: 20px;
+  }
+
+  .game-num {
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--mid);
+    transition: color 0.12s;
+    flex-shrink: 0;
+  }
+
+  .game-name {
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    line-height: 1;
+  }
+
+  .game-tag {
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--mid);
+    border: 1px solid var(--line);
+    padding: 3px 8px;
+    transition: color 0.12s, border-color 0.12s;
+    flex-shrink: 0;
+  }
+
+  /* FOOTER */
+  footer {
+    padding: 20px 48px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+
+  .footer-txt {
+    font-size: 10px;
+    color: var(--mid);
+    letter-spacing: 0.05em;
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 640px) {
+    body { height: 100dvh; }
+    header { padding: 14px 20px; }
+    .logo  { font-size: 22px; }
+    .tagline { font-size: 10px; letter-spacing: 0.06em; }
+    main { padding: 0 20px; gap: 32px; }
+    .hero-title { letter-spacing: -1px; }
+    .game-list { max-width: none; }
+    .game-item { padding: 16px 20px; }
+    .game-item-left { gap: 14px; }
+    .game-name { font-size: 18px; }
+    footer { padding: 14px 20px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Type<span> Dual</span></div>
+  <div class="tagline">Design Perception Games</div>
+</header>
+
+<main>
+
+  <h1 class="hero-title">Can your eye<br>be <em>trusted?</em></h1>
+
+  <div class="game-list">
+
+    <a class="game-item" href="spaced.html">
+      <div class="game-item-left">
+        <span class="game-num">01</span>
+        <span class="game-name">Spaced</span>
+      </div>
+      <span class="game-tag">Spacing</span>
+    </a>
+
+    <a class="game-item" href="CENTERED.html">
+      <div class="game-item-left">
+        <span class="game-num">02</span>
+        <span class="game-name">Centered</span>
+      </div>
+      <span class="game-tag">Alignment</span>
+    </a>
+
+    <a class="game-item" href="snap.html">
+      <div class="game-item-left">
+        <span class="game-num">03</span>
+        <span class="game-name">Snap</span>
+      </div>
+      <span class="game-tag">Alignment</span>
+    </a>
+
+    <div class="game-item disabled">
+      <div class="game-item-left">
+        <span class="game-num">04</span>
+        <span class="game-name">—</span>
+      </div>
+      <span class="game-tag">Soon</span>
+    </div>
+
+  </div>
+
+</main>
+
+<footer>
+  <span class="footer-txt">Type Dual</span>
+  <span class="footer-txt">3 of 6 games available</span>
+</footer>
+
+</body>
+</html>
