@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Colored — Color Perception</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  html, body { height: 100%; width: 100%; }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --canvas-bg: #F5F5F5;
+    --artboard-bg: #FFFFFF;
+    --ink: #1E1E1E;
+    --mid: #8E8E8E;
+    --line: #E5E5E5;
+    --accent-red: #F24822;
+    --mono: 'DM Mono', monospace;
+    --serif: 'Playfair Display', serif;
+    --scene-bg: #F5F5F5;
+    --scene-color: #1E1E1E;
+    --scene-dot: rgba(30,30,30,0.12);
+  }
+
+  body {
+    background-color: var(--scene-bg);
+    color: var(--scene-color);
+    font-family: var(--mono);
+    height: 100vh; height: 100dvh;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    background-image: radial-gradient(var(--scene-dot) 1px, transparent 0);
+    background-size: 20px 20px;
+    background-position: center;
+  }
+
+  header {
+    padding: 16px 48px; display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid var(--scene-color); background: var(--scene-bg);
+    flex-shrink: 0; z-index: 20; position: relative;
+  }
+  .logo { font-family: var(--serif); font-size: 28px; font-weight: 700; letter-spacing: -0.5px; line-height: 1; color: var(--scene-color); }
+  .logo span { font-style: italic; opacity: 0.5; }
+  .tagline { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--scene-color); opacity: 0.45; }
+
+  /* TIMER BAR */
+  .timer-track {
+    height: 5px; background: rgba(128,128,128,0.15); flex-shrink: 0; width: 100%; position: relative;
+  }
+  .timer-fill {
+    height: 100%; background: var(--scene-color); width: 100%;
+    transform-origin: left; transition: transform 0.1s linear;
+  }
+
+  .game-wrap {
+    flex: 1; display: flex; flex-direction: column; width: 100%; max-width: 640px; margin: 0 auto; padding: 24px;
+    position: relative;
+  }
+  
+  #gameScreen {
+    max-width: none;
+    padding: 0;
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: transparent;
+  }
+
+  /* START / END SCREENS */
+  .screen {
+    display: none; flex: 1; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; background: var(--scene-bg); z-index: 10;
+  }
+  .screen.active { display: flex; }
+  
+  .title-serif { font-family: var(--serif); font-size: 56px; font-weight: 700; color: var(--scene-color); line-height: 1; margin-bottom: 24px; }
+  .score-display { font-family: var(--mono); font-size: 80px; font-weight: 300; line-height: 1; color: var(--scene-color); letter-spacing: -2px; margin-bottom: 12px; }
+  .verdict { font-family: var(--serif); font-style: italic; font-size: 18px; color: var(--scene-color); opacity: 0.75; margin-bottom: 20px; }
+  
+  .btn {
+    width: 100%; max-width: 320px; padding: 12px;
+    background: var(--scene-color); color: var(--scene-bg);
+    border: 1px solid var(--scene-color); font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em;
+    cursor: pointer; text-transform: uppercase; margin-bottom: 8px; transition: background 0.2s, color 0.2s;
+  }
+  .btn:hover { background: transparent; color: var(--scene-color); }
+  .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .btn.outline { background: transparent; color: var(--scene-color); }
+  .btn.outline:hover { background: var(--scene-color); color: var(--scene-bg); }
+
+  /* IN-GAME */
+  .game-header {
+    position: absolute; top: 16px; left: 16px; z-index: 50;
+    background: rgba(255,255,255,0.9); padding: 8px 16px; border-radius: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid var(--line);
+    display: flex; gap: 12px; align-items: center;
+  }
+  .score-lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--mid); margin: 0; }
+  .live-score { font-size: 20px; font-family: var(--mono); font-weight: 500; color: var(--scene-color); line-height: 1; }
+  
+  .grid-container {
+    width: 100%; flex: 1;
+    display: grid; gap: 4px; margin: 0;
+    background: var(--line); /* gap color */
+  }
+  
+  .grid-cell {
+    width: 100%; height: 100%;
+    cursor: pointer;
+    transition: transform 0.05s;
+  }
+  .grid-cell:active { transform: scale(0.98); }
+
+  /* OVERLAY FOR NOTIFICATIONS */
+  .overlay {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(245,245,245,0.8); backdrop-filter: blur(4px);
+    z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  .overlay.show { opacity: 1; pointer-events: auto; }
+  .overlay-text { font-family: var(--serif); font-size: 40px; font-weight: 700; color: var(--accent-red); }
+
+  /* MULTIPLAYER LEADERBOARD */
+  .mp-board {
+    margin-top: 24px; width: 100%; border-top: 1px solid var(--line); padding-top: 16px;
+    display: none;
+  }
+  .mp-board.active { display: block; }
+
+  #gameMpBoard {
+    position: absolute; top: 64px; left: 16px; z-index: 50; margin: 0; padding: 12px;
+    background: rgba(255,255,255,0.9); border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 220px; border: 1px solid var(--line);
+    display: none;
+  }
+  #gameMpBoard.active { display: block; }
+  #gameMpBoard .mp-title { margin-bottom: 8px; margin-top: 0; }
+
+  .mp-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--mid); margin-bottom: 12px; margin-top: 0; }
+  .mp-row { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 6px; align-items: center; }
+  .mp-name { color: var(--scene-color); display: flex; align-items: center; gap: 8px; }
+  .mp-status { width: 6px; height: 6px; border-radius: 50%; opacity: 0.4; }
+  .mp-status.alive { background-color: #14AE5C; opacity: 1; }
+  .mp-status.dead { background-color: var(--accent-red); opacity: 1; }
+  .mp-score { font-family: var(--mono); font-weight: 500; }
+
+  /* ── Challenge Intro Screen ──────────────────────────────────────────────── */
+  #challengeIntro {
+    position: fixed; inset: 0; z-index: 60;
+    background: var(--scene-bg);
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  #challengeIntro.hidden { display: none; }
+  .chal-inner { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 14px; }
+  .chal-from { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.4; }
+  .chal-creator { font-family: var(--serif); font-size: 40px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.1; }
+  .chal-sub  { font-size: 13px; opacity: 0.5; }
+  .chal-badge {
+    display: inline-block; align-self: flex-start;
+    border: 1px solid var(--scene-color); border-radius: 2px;
+    padding: 3px 10px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.55;
+  }
+  .chal-name-inp {
+    font-family: var(--mono); font-size: 14px;
+    background: none; border: 1px solid var(--scene-color); border-radius: 4px;
+    color: var(--scene-color); padding: 10px 14px; width: 100%; outline: none; margin-top: 4px;
+  }
+  .chal-name-inp::placeholder { opacity: 0.35; color: var(--scene-color); }
+
+  /* ── Challenge Result Overlay ────────────────────────────────────────────── */
+  #challengeResult {
+    position: fixed; inset: 0; z-index: 70;
+    background: var(--scene-bg);
+    display: flex; flex-direction: column;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+  #challengeResult.show { opacity: 1; pointer-events: all; }
+  .cr-header {
+    padding: 16px 48px; border-bottom: 1px solid var(--scene-color);
+    font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase;
+    display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+  }
+  .cr-code { opacity: 0.35; font-size: 10px; letter-spacing: 0.2em; }
+  .cr-scroll { flex: 1; overflow-y: auto; padding: 8px 48px 16px; }
+  .cr-row {
+    display: flex; align-items: baseline; gap: 12px;
+    padding: 10px 0; border-bottom: 1px solid rgba(128,128,128,0.18);
+  }
+  .cr-rank  { font-size: 10px; opacity: 0.35; width: 16px; flex-shrink: 0; text-align: right; }
+  .cr-name  { flex: 1; font-size: 13px; }
+  .cr-name.is-me { color: var(--accent-blue); }
+  .cr-total  { font-size: 20px; font-family: var(--mono); min-width: 44px; text-align: right; }
+  .cr-waiting { font-size: 13px; opacity: 0.45; font-style: italic; padding: 24px 0; }
+  .cr-actions {
+    padding: 16px 48px; border-top: 1px solid var(--scene-color);
+    display: flex; gap: 8px; flex-shrink: 0;
+  }
+
+  /* ── "Challenge Friends" row on final screen ─────────────────────────────── */
+  .chal-final-row { display: none; flex-direction: column; gap: 8px; margin-top: 4px; width: 100%; max-width: 320px; text-align: left; }
+  .chal-final-row.show { display: flex; }
+  .chal-final-inp-row { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+  .chal-creator-inp {
+    font-family: var(--mono); font-size: 13px; text-align: center;
+    background: none; border: 1px solid var(--line); border-radius: 4px;
+    color: var(--scene-color); padding: 12px; flex: 1; outline: none; min-width: 0;
+  }
+  .chal-creator-inp::placeholder { opacity: 0.35; color: var(--scene-color); text-transform: uppercase; letter-spacing: 0.1em; font-size: 10px; }
+
+  /* ELIMINATED SCREEN */
+  .elim-overlay {
+    position: absolute; inset: 0; z-index: 95;
+    background: var(--scene-bg);
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    padding: 32px 24px; text-align: center;
+    overflow-y: auto;
+  }
+  .elim-overlay.show { display: flex; }
+  .elim-tag {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.18em;
+    color: var(--accent-red); margin-bottom: 16px;
+  }
+  .elim-my-score {
+    font-family: var(--mono); font-size: 80px; font-weight: 300;
+    letter-spacing: -2px; line-height: 1; color: var(--scene-color); margin-bottom: 4px;
+  }
+  .elim-my-label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--mid); margin-bottom: 36px;
+  }
+  .elim-board { width: 100%; max-width: 320px; text-align: left; }
+  .elim-board-title {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--mid); margin-bottom: 12px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  .elim-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 0; border-bottom: 1px solid var(--line);
+    transition: opacity 0.3s;
+  }
+  .elim-row.is-dead { opacity: 0.45; }
+  .elim-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .elim-dot.alive { background: #14AE5C; }
+  .elim-dot.dead  { background: var(--accent-red); }
+  .elim-name { flex: 1; font-size: 13px; color: var(--scene-color); }
+  .elim-name.is-me { font-weight: 500; }
+  .elim-score-val { font-family: var(--mono); font-size: 16px; font-weight: 500; color: var(--scene-color); min-width: 36px; text-align: right; }
+  .elim-wait {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--mid); margin-top: 28px;
+  }
+
+  @media (max-width: 640px) {
+    header { padding: max(14px, env(safe-area-inset-top, 14px)) 20px 14px; }
+    .logo { font-size: 22px; }
+    .game-wrap { padding: 16px 20px; }
+    .title-serif { font-size: 40px; }
+    .grid-container { gap: 4px; }
+    .grid-cell { border-radius: 2px; }
+    #challengeIntro { align-items: flex-start; padding-top: 80px; }
+    .chal-creator   { font-size: 30px; }
+    .cr-header, .cr-scroll, .cr-actions { padding-left: 24px; padding-right: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Colored<span></span></div>
+  <div class="tagline">Color Perception</div>
+</header>
+
+<div class="timer-track" id="timerTrack" style="display:none;">
+  <div class="timer-fill" id="timerFill"></div>
+</div>
+
+<!-- START SCREEN -->
+<div class="game-wrap screen active" id="startScreen">
+  <div class="title-serif">Find the<br>Odd One Out</div>
+  <div class="verdict" style="margin-bottom:40px; font-size: 14px; font-family: var(--mono); font-style: normal;">
+    You have 5 seconds per round.<br>Tap the slightly different color.<br>One mistake and it's over.
+  </div>
+  <button class="btn" id="startBtn" onclick="startSolo()">Play Solo</button>
+  <div id="hostWaitMsg" style="display:none; font-size: 11px; text-transform:uppercase; letter-spacing:0.1em; margin-top:20px;">
+    Waiting for host to start...
+  </div>
+  
+  <div class="mp-board" id="startMpBoard"></div>
+</div>
+
+<!-- GAME SCREEN -->
+<div class="screen" id="gameScreen">
+  <div class="game-header">
+    <div class="score-lbl">Score</div>
+    <div class="live-score" id="liveScore">0</div>
+  </div>
+  
+  <div class="grid-container" id="gridContainer"></div>
+
+  <div class="mp-board" id="gameMpBoard"></div>
+
+  <div class="overlay" id="overlay">
+    <div class="overlay-text" id="overlayText">Game Over</div>
+  </div>
+
+  <div class="elim-overlay" id="elimOverlay">
+    <div class="elim-tag">You're Out</div>
+    <div class="elim-my-score" id="elimMyScore">0</div>
+    <div class="elim-my-label">your score</div>
+    <div class="elim-board">
+      <div class="elim-board-title">Live Players</div>
+      <div id="elimRows"></div>
+    </div>
+    <div class="elim-wait" id="elimWait">Waiting for others to finish…</div>
+  </div>
+</div>
+
+<!-- FINAL SCREEN -->
+<div class="game-wrap screen" id="finalScreen">
+  <div class="title-serif">Survival<br>Ended</div>
+  <div class="score-display" id="finalScore">0</div>
+  <div class="verdict" id="finalVerdict">Good eye, but not good enough.</div>
+  
+  <button class="btn btn-outline" id="shareBtn" onclick="shareResult()" style="margin-top: 12px;">Share</button>
+  <button class="btn" id="playAgainBtn" onclick="goLobby()">Play Again</button>
+  
+  <div class="chal-final-row" id="chalFinalRow">
+    <div class="chal-final-inp-row">
+      <input class="chal-creator-inp" id="chalCreatorInp" type="text" maxlength="16" placeholder="Your name" autocomplete="off">
+      <button class="btn" id="chalFinalBtn" style="flex-shrink:0; margin-bottom:0;" onclick="_challengeFromFinal()">Challenge Friends</button>
+    </div>
+  </div>
+  
+  <div class="mp-board" id="finalMpBoard"></div>
+</div>
+
+<!-- Challenge Intro Screen (shown when ?c=CODE is in URL) -->
+<div id="challengeIntro" class="hidden">
+  <div class="chal-inner">
+    <div class="chal-from">Challenged by</div>
+    <div class="chal-creator" id="chalCreatorName">—</div>
+    <div class="chal-sub">Can you beat their score?</div>
+    <div class="chal-badge" id="chalModeBadge">Survival</div>
+    <input class="chal-name-inp" id="chalNameInp" type="text" maxlength="16" placeholder="Your name (optional)" autocomplete="off">
+    <button class="btn" id="chalStartBtn">Start Game</button>
+  </div>
+</div>
+
+<!-- Challenge Result Overlay -->
+<div id="challengeResult">
+  <div class="cr-header">
+    <span>Challenge Results</span>
+    <span class="cr-code" id="crCode"></span>
+  </div>
+  <div class="cr-scroll" id="crRows"></div>
+  <div class="cr-actions">
+    <button class="btn btn-outline" id="crCopyBtn" style="margin-bottom:0;">Copy Link</button>
+    <button class="btn" onclick="window.location.href='colored.html'" style="margin-bottom:0;">Play Again</button>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script src="room.js"></script>
+
+<script>
+// Logic
+const GAME_TIME_MS = 5000;
+let _score = 0;
+let _levelIdx = 0;
+let _isDead = false;
+let _timerActive = false;
+let _timeStart = 0;
+let _rafId = null;
+
+// Firebase Context
+const urlParams = new URLSearchParams(window.location.search);
+const _roomCode = urlParams.get('room');
+const _cCode = urlParams.get('c');
+let _isChallengeMode = !!_cCode;
+let _roomUnsub = null;
+let _isHost = false;
+
+// Elements
+const scrStart = document.getElementById('startScreen');
+const scrGame = document.getElementById('gameScreen');
+const scrFinal = document.getElementById('finalScreen');
+const timerTrack = document.getElementById('timerTrack');
+const timerFill = document.getElementById('timerFill');
+const liveScoreEl = document.getElementById('liveScore');
+const gridCont = document.getElementById('gridContainer');
+const overlay = document.getElementById('overlay');
+const overlayText = document.getElementById('overlayText');
+
+function showScreen(scr) {
+  [scrStart, scrGame, scrFinal].forEach(el => el.classList.remove('active'));
+  scr.classList.add('active');
+  
+  // gameScreen isn't game-wrap, so position needs adjusting if header stays
+  if (scr === scrGame) {
+    document.querySelector('header').style.display = 'none';
+    timerTrack.style.position = 'absolute';
+    timerTrack.style.top = '0';
+    timerTrack.style.zIndex = '60';
+  } else {
+    document.querySelector('header').style.display = 'flex';
+    timerTrack.style.position = 'relative';
+  }
+}
+
+// ---- GRID & COLOR LOGIC ----
+function generateLevel(idx) {
+  let size = 3; // user requested to start with 3x3
+  if (idx > 5) size = 4;
+  if (idx > 15) size = 5;
+  if (idx > 30) size = 6;
+  if (idx > 50) size = 7;
+  if (idx > 75) size = 8;
+  
+  const baseH = Math.floor(Math.random() * 360);
+  const baseS = 60 + Math.floor(Math.random() * 30); // 60-90
+  const baseL = 30 + Math.floor(Math.random() * 40); // 30-70
+
+  // Delta decreases as score increases
+  const deltaL = Math.max(2, 16 - (idx * 0.4));
+  let sign = Math.random() > 0.5 ? 1 : -1;
+  let targetL = baseL + (deltaL * sign);
+  if (targetL > 90) targetL = baseL - deltaL;
+  if (targetL < 10) targetL = baseL + deltaL;
+
+  return {
+    size,
+    baseColor: `hsl(${baseH}, ${baseS}%, ${baseL}%)`,
+    targetColor: `hsl(${baseH}, ${baseS}%, ${targetL}%)`,
+    targetIdx: Math.floor(Math.random() * (size * size))
+  };
+}
+
+function renderGrid() {
+  const lvl = generateLevel(_levelIdx);
+  gridCont.style.gridTemplateColumns = `repeat(${lvl.size}, 1fr)`;
+  gridCont.style.gridTemplateRows = `repeat(${lvl.size}, 1fr)`;
+  gridCont.innerHTML = '';
+  
+  const total = lvl.size * lvl.size;
+  for (let i = 0; i < total; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'grid-cell';
+    cell.style.backgroundColor = (i === lvl.targetIdx) ? lvl.targetColor : lvl.baseColor;
+    
+    cell.onmousedown = (e) => {
+      e.preventDefault();
+      if (_isDead) return;
+      if (i === lvl.targetIdx) {
+        correctPath();
+      } else {
+        die('Wrong Color!');
+      }
+    };
+    // touch support
+    cell.ontouchstart = cell.onmousedown;
+    gridCont.appendChild(cell);
+  }
+}
+
+function correctPath() {
+  _score++;
+  _levelIdx++;
+  liveScoreEl.textContent = _score;
+  resetTimer();
+  renderGrid();
+  
+  if (_roomCode) {
+    tdUpdateSurvivalScore(_roomCode, _score, 'playing');
+  }
+}
+
+function die(reason) {
+  _isDead = true;
+  _timerActive = false;
+  overlayText.textContent = reason;
+  overlay.classList.add('show');
+  cancelAnimationFrame(_rafId);
+  
+  if (_roomCode) {
+    tdUpdateSurvivalScore(_roomCode, _score, 'dead');
+    overlay.classList.remove('show');
+    document.getElementById('elimMyScore').textContent = _score;
+    document.getElementById('elimOverlay').classList.add('show');
+  } else if (_isChallengeMode) {
+    setTimeout(showChallengeResultSubmit, 1200);
+  } else {
+    setTimeout(showFinal, 1200);
+  }
+}
+
+function showFinal() {
+  timerTrack.style.display = 'none';
+  overlay.classList.remove('show');
+  document.getElementById('finalScore').textContent = _score;
+  
+  let verdict = "Not bad, I guess.";
+  if (_score < 5) verdict = "Needs more coffee.";
+  if (_score >= 15) verdict = "Great perception!";
+  if (_score >= 30) verdict = "You have eagle eyes!";
+  if (_score >= 50) verdict = "Absolute machine!";
+  document.getElementById('finalVerdict').textContent = verdict;
+  
+  showScreen(scrFinal);
+}
+
+function resetTimer() {
+  _timeStart = performance.now();
+}
+
+function loop(t) {
+  if (!_timerActive) return;
+  const elapsed = t - _timeStart;
+  const remain = Math.max(0, GAME_TIME_MS - elapsed);
+  const pct = remain / GAME_TIME_MS;
+  
+  timerFill.style.transform = `scaleX(${pct})`;
+  
+  if (remain <= 0) {
+    die('Time Up!');
+    return;
+  }
+  _rafId = requestAnimationFrame(loop);
+}
+
+function startSolo() {
+  _score = 0;
+  _levelIdx = 0;
+  _isDead = false;
+  liveScoreEl.textContent = _score;
+  
+  showScreen(scrGame);
+  timerTrack.style.display = 'block';
+  renderGrid();
+  
+  _timerActive = true;
+  resetTimer();
+  _rafId = requestAnimationFrame(loop);
+}
+
+function goLobby() {
+  if (_roomCode) {
+    window.location.href = `index.html`; // Let index.html handle re-joining logic or we just drop them to hub
+  } else {
+    showScreen(scrStart);
+  }
+}
+
+// ---- MULTIPLAYER LOGIC ----
+
+async function tdStartSurvival(code) {
+  await _db().ref(`rooms/${code}`).update({ state: 'playing' });
+}
+
+async function tdUpdateSurvivalScore(code, score, status) {
+  tdInit();
+  const myId = tdMyId();
+  await _db().ref(`rooms/${code}/survival/${myId}`).set({ score, status });
+
+  if (status === 'dead') {
+    const [roomSnap, survivalSnap] = await Promise.all([
+      _db().ref(`rooms/${code}`).once('value'),
+      _db().ref(`rooms/${code}/survival`).once('value')
+    ]);
+    const room = roomSnap.val();
+    if (!room || room.state === 'final') return;
+    const players = Object.keys(room.players || {});
+    const survival = survivalSnap.val() || {};
+    const allDead = players.every(pid => survival[pid]?.status === 'dead');
+    if (allDead) {
+      await _db().ref(`rooms/${code}`).update({ state: 'final' });
+    }
+  }
+}
+
+// Render MP leaderboards in all active screens
+function updateMpBoards(room) {
+  const myId = tdMyId();
+  const pList = Object.keys(room.players || {}).map(pid => {
+    const p = room.players[pid];
+    const s = (room.survival || {})[pid] || { score: 0, status: 'waiting' };
+    return { name: p.name, score: s.score || 0, status: s.status || 'waiting', isMe: pid === myId };
+  }).sort((a,b) => b.score - a.score);
+
+  const boardHtml = `
+    <div class="mp-title">Live Players</div>
+    ${pList.map(p => `
+      <div class="mp-row" style="opacity: ${p.status === 'dead' ? 0.5 : 1};">
+        <div class="mp-name">
+          <div class="mp-status ${p.status === 'dead' ? 'dead' : 'alive'}"></div>
+          ${p.name}${p.isMe ? ' (You)' : ''}
+        </div>
+        <div class="mp-score">${p.score}</div>
+      </div>
+    `).join('')}
+  `;
+
+  document.getElementById('startMpBoard').innerHTML = boardHtml;
+  document.getElementById('finalMpBoard').innerHTML = boardHtml;
+
+  const elimRows = document.getElementById('elimRows');
+  if (elimRows) {
+    elimRows.innerHTML = pList.map(p => `
+      <div class="elim-row ${p.status === 'dead' ? 'is-dead' : ''}">
+        <div class="elim-dot ${p.status === 'dead' ? 'dead' : 'alive'}"></div>
+        <div class="elim-name ${p.isMe ? 'is-me' : ''}">${p.name}${p.isMe ? ' (You)' : ''}</div>
+        <div class="elim-score-val">${p.score}</div>
+      </div>
+    `).join('');
+
+    const allDone = pList.every(p => p.status === 'dead');
+    const waitEl = document.getElementById('elimWait');
+    if (waitEl) waitEl.style.display = allDone ? 'none' : 'block';
+  }
+}
+
+if (_roomCode) {
+  document.getElementById('startBtn').style.display = 'none';
+  const waitMsg = document.getElementById('hostWaitMsg');
+  waitMsg.style.display = 'block';
+  
+  document.getElementById('startMpBoard').classList.add('active');
+  document.getElementById('finalMpBoard').classList.add('active');
+  document.getElementById('playAgainBtn').textContent = "Return to Lobby";
+
+  tdInit();
+  _db().ref(`rooms/${_roomCode}/players/${tdMyId()}/online`).set(true);
+  _db().ref(`rooms/${_roomCode}/players/${tdMyId()}/online`).onDisconnect().set(false);
+
+  _roomUnsub = tdSubscribeRoom(_roomCode, async room => {
+    if (!room) return;
+    _isHost = room.hostId === tdMyId();
+    updateMpBoards(room);
+
+    if (room.state === 'lobby') {
+      if (_isHost) {
+        waitMsg.textContent = "Tap to start survival for everyone";
+        const btn = document.getElementById('startBtn');
+        btn.style.display = 'block';
+        btn.textContent = "Start Game";
+        btn.onclick = () => { tdStartSurvival(_roomCode); };
+      } else {
+        waitMsg.textContent = "Waiting for host to start...";
+      }
+      showScreen(scrStart);
+    } 
+    else if (room.state === 'observe' || room.state === 'playing') {
+      if (!_timerActive && !_isDead) {
+        _score = 0;
+        _levelIdx = 0;
+        _isDead = false;
+        liveScoreEl.textContent = _score;
+        showScreen(scrGame);
+        timerTrack.style.display = 'block';
+        renderGrid();
+        tdUpdateSurvivalScore(_roomCode, 0, 'playing');
+        _timerActive = true;
+        resetTimer();
+        _rafId = requestAnimationFrame(loop);
+      }
+    }
+    else if (room.state === 'final') {
+      showFinal();
+    }
+  });
+}
+
+// ── SHARE LOGIC ──
+
+function buildShareCanvas() {
+  const W = 540, H = 960;
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+
+  const bg    = '#F5F5F5', ink = '#1E1E1E';
+  const GREEN = '#14AE5C', RED = '#F24822';
+
+  const verdict = document.getElementById('finalVerdict').textContent;
+
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+  // Dot grid
+  ctx.fillStyle = ink; ctx.globalAlpha = 0.07;
+  for (let x = 20; x < W; x += 20)
+    for (let y = 20; y < H; y += 20) {
+      ctx.beginPath(); ctx.arc(x, y, 1, 0, Math.PI * 2); ctx.fill();
+    }
+  ctx.globalAlpha = 1;
+
+  const sep = (y) => {
+    ctx.globalAlpha = 0.18; ctx.strokeStyle = ink; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(56, y); ctx.lineTo(W - 56, y); ctx.stroke();
+    ctx.globalAlpha = 1;
+  };
+
+  ctx.globalAlpha = 0.35; ctx.fillStyle = ink;
+  ctx.font = '400 13px "DM Mono", monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('DESIGN DUAL', W / 2, 90);
+
+  ctx.globalAlpha = 1; ctx.fillStyle = ink;
+  ctx.font = '700 80px "Playfair Display", serif';
+  ctx.fillText('Colored', W / 2, 185);
+  sep(230);
+
+  const scoreColor = _score >= 30 ? GREEN : _score >= 10 ? ink : RED;
+  ctx.globalAlpha = 1; ctx.fillStyle = scoreColor;
+  ctx.font = '300 160px "DM Mono", monospace';
+  ctx.fillText(_score, W / 2, 420);
+
+  ctx.globalAlpha = 0.4; ctx.fillStyle = ink;
+  ctx.font = '400 17px "DM Mono", monospace';
+  ctx.fillText('rounds survived', W / 2, 480);
+
+  ctx.globalAlpha = 1; ctx.fillStyle = ink;
+  ctx.font = 'italic 400 26px "Playfair Display", serif';
+  ctx.fillText(verdict, W / 2, 560);
+  sep(610);
+
+  ctx.globalAlpha = 0.5; ctx.fillStyle = ink;
+  ctx.font = '400 16px "DM Mono", monospace';
+  ctx.fillText('Can you beat my survival streak?', W / 2, 690);
+
+  ctx.globalAlpha = 0.25; ctx.fillStyle = ink;
+  ctx.font = '400 14px "DM Mono", monospace'; ctx.textAlign = 'center';
+  ctx.fillText('designdual.com', W / 2, H - 52);
+
+  return cv;
+}
+
+async function shareResult() {
+  const btn = document.getElementById('shareBtn');
+  btn.disabled = true; btn.textContent = '...';
+  try {
+    const cv = buildShareCanvas();
+    cv.toBlob(async blob => {
+      const file = new File([blob], 'colored-designdual.png', { type: 'image/png' });
+      try {
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: 'Colored · Design Dual' });
+        } else { throw new Error('no share'); }
+      } catch (e) {
+        if (e.name !== 'AbortError') {
+          const a = document.createElement('a');
+          a.href = cv.toDataURL('image/png'); a.download = 'colored-designdual.png'; a.click();
+        }
+      }
+      btn.disabled = false; btn.textContent = 'Share';
+    }, 'image/png');
+  } catch(e) {
+    btn.disabled = false; btn.textContent = 'Share';
+  }
+}
+
+// ── CHALLENGE LOGIC ──
+
+window._challengeFromFinal = async function() {
+  const btn = document.getElementById('chalFinalBtn');
+  const myName = document.getElementById('chalCreatorInp').value.trim() || 'Anonymous';
+  tdMyName(myName); 
+  
+  if (btn.textContent === 'Copied!') return;
+  if (btn.textContent === 'Copy Link') {
+    navigator.clipboard.writeText(tdChallengeUrl(window._myChallengeCode));
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = 'Copy Link'; }, 2000);
+    return;
+  }
+  
+  btn.textContent = 'Creating...';
+  const seed = Date.now();
+  const code = await tdCreateChallenge('colored', 'survival', seed, myName);
+  window._myChallengeCode = code;
+  
+  await tdSubmitChallengeScore(code, myName, _score, []);
+  
+  btn.textContent = 'Copy Link';
+  document.getElementById('chalCreatorInp').style.display = 'none';
+};
+
+if (_cCode) {
+  document.getElementById('startScreen').classList.remove('active');
+  document.getElementById('challengeIntro').classList.remove('hidden');
+  document.querySelector('header').style.display = 'none';
+
+  tdFetchChallenge(_cCode).then(chal => {
+    if(!chal) { window.location.href="colored.html"; return; }
+    document.getElementById('chalCreatorName').textContent = chal.creatorName || "?";
+    
+    window._chalSeed = chal.seed;
+    
+    const saved = tdMyName();
+    if(saved) document.getElementById('chalNameInp').value = saved;
+    
+    document.getElementById('chalStartBtn').onclick = () => {
+      const n = document.getElementById('chalNameInp').value.trim();
+      tdMyName(n);
+      document.getElementById('challengeIntro').classList.add('hidden');
+      
+      if (window._chalSeed) {
+        Math.random = tdRng(window._chalSeed);
+      }
+      
+      startSolo();
+    };
+  });
+} else if (!_roomCode) {
+  document.getElementById('chalFinalRow').classList.add('show');
+  const saved = tdMyName();
+  if(saved) document.getElementById('chalCreatorInp').value = saved;
+}
+
+async function showChallengeResultSubmit() {
+  timerTrack.style.display = 'none';
+  overlay.classList.remove('show');
+  document.getElementById('gameScreen').classList.remove('active');
+  document.querySelector('header').style.display = 'none';
+  document.getElementById('challengeResult').classList.add('show');
+  
+  document.getElementById('crCode').textContent = _cCode;
+  document.getElementById('crRows').innerHTML = '<div class="cr-waiting">Submitting score...</div>';
+  
+  const myName = tdMyName() || 'Anonymous';
+  await tdSubmitChallengeScore(_cCode, myName, _score, []);
+  
+  const scores = await tdFetchChallengeScores(_cCode);
+  document.getElementById('crRows').innerHTML = scores.map((s, i) => `
+    <div class="cr-row">
+      <div class="cr-rank">#${i+1}</div>
+      <div class="cr-name ${s.name === myName && s.score === _score ? 'is-me':''}">${s.name}</div>
+      <div class="cr-total">${s.score}</div>
+    </div>
+  `).join('');
+  
+  document.getElementById('crCopyBtn').onclick = function() {
+    navigator.clipboard.writeText(tdChallengeUrl(_cCode));
+    this.textContent = 'Copied!';
+    setTimeout(() => { this.textContent = 'Copy Link'; }, 2000);
+  };
+}
+
+</script>
+</body>
+</html>

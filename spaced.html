@@ -1,0 +1,2217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spaced — Can you remember space?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  html, body { height: 100%; width: 100%; }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --canvas-bg: #F5F5F5;
+    --artboard-bg: #FFFFFF;
+    --ink: #1E1E1E;
+    --mid: #8E8E8E;
+    --line: #E5E5E5;
+    --accent-blue: #0D99FF;
+    --accent-blue-bg: rgba(13, 153, 255, 0.15);
+    --accent-red: #F24822;
+    --accent-green: #14AE5C;
+    --mono: 'DM Mono', monospace;
+    --serif: 'Playfair Display', serif;
+    --scene-bg:    #F5F5F5;
+    --scene-color: #1E1E1E;
+    --scene-dot:   rgba(30,30,30,0.12);
+  }
+
+  /* Smooth palette transitions */
+  *, *::before, *::after {
+    transition-property: background-color, color, border-color, outline-color;
+    transition-duration: 0.5s;
+    transition-timing-function: ease;
+  }
+
+  body {
+    background-color: var(--scene-bg);
+    color: var(--scene-color);
+    font-family: var(--mono);
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0;
+    background-image: radial-gradient(var(--scene-dot) 1px, transparent 0);
+    background-size: 20px 20px;
+    background-position: center;
+  }
+
+  /* HEADER */
+  header {
+    width: 100%;
+    max-width: none;
+    padding: 16px 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0;
+    border-bottom: 1px solid var(--scene-color);
+    background: var(--scene-bg);
+    flex-shrink: 0;
+    position: relative;
+    z-index: 20;
+  }
+
+  .logo {
+    font-family: var(--serif);
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    line-height: 1;
+    color: var(--scene-color);
+  }
+
+  .logo span { color: var(--scene-color); font-style: italic; opacity: 0.5; }
+
+  .tagline {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--scene-color);
+    opacity: 0.45;
+  }
+
+  /* Round boxes in header */
+  .round-boxes { display: flex; gap: 6px; align-items: center; }
+  .round-box {
+    width: 10px; height: 10px;
+    border: 1px solid var(--scene-color);
+    opacity: 0.3;
+  }
+  .round-box.done   { background-color: var(--scene-color); opacity: 0.35; }
+  .round-box.active { background-color: var(--scene-color); opacity: 1; }
+
+  /* MAIN CONTAINER */
+  .game-wrap {
+    width: 100%;
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  #startScreen.game-wrap {
+    max-width: none;
+    padding: 0;
+  }
+
+  #gameArea {
+    max-width: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  #startScreen {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+
+  /* PHASE LABEL */
+  .phase-label {
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--mid);
+    margin-bottom: 0;
+    padding: 10px 48px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid var(--line);
+    flex-shrink: 0;
+    background: var(--canvas-bg);
+    transition: background 0.3s ease;
+    z-index: 20;
+    position: relative;
+  }
+
+  .phase-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--line);
+  }
+
+  .phase-label.active-phase { color: var(--accent-blue); }
+  .phase-label.active-phase::after { background: var(--accent-blue); }
+  .phase-label.guess-phase { color: var(--accent-red); }
+  .phase-label.guess-phase::after { background: var(--accent-red); }
+
+  .timer-count {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    background: var(--ink);
+    color: var(--artboard-bg);
+    padding: 3px 10px;
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+  }
+  .timer-count:empty { display: none; }
+
+
+  /* STAGE CARD */
+  .stage-card {
+    background: var(--scene-bg);
+    border: none;
+    padding: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  .frame-label {
+    position: absolute;
+    top: 12px;
+    left: 40px;
+    font-size: 11px;
+    color: var(--scene-color);
+    opacity: 0.4;
+    font-weight: 500;
+    font-family: var(--mono);
+    z-index: 2;
+  }
+
+
+/* THE SPECIMEN */
+  .specimen {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-height: 0;
+    position: relative;
+  }
+
+  /* Top half — top text sticks to the bottom edge (= card vertical center) */
+  .specimen-top-area {
+    flex: 1;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 0;
+  }
+
+  /* Bottom half — gap and bottom text flow downward from center */
+  .specimen-bottom-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+  }
+
+  .specimen-line {
+    font-family: var(--serif);
+    font-size: clamp(48px, 6vw, 120px);
+    font-weight: 400;
+    color: var(--scene-color);
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .specimen-gap {
+    width: 100%;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+  }
+
+  /* Fixed-height track — keeps text positions stable regardless of gap value */
+  .gap-track {
+    width: 40%;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .gap-visual {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    background: var(--accent-blue-bg);
+    border: 1px solid rgba(13, 153, 255, 0.5);
+    border-left: none;
+    border-right: none;
+    transition: height 0.06s linear;
+    z-index: 1;
+  }
+
+  .gap-visual::before, .gap-visual::after {
+    content: '';
+    position: absolute;
+    width: 5px; height: 5px;
+    background: white;
+    border: 1px solid var(--accent-blue);
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  .gap-visual::before { top: -3px; }
+  .gap-visual::after  { bottom: -3px; }
+
+
+  /* TIMER BAR */
+  .timer-track {
+    height: 5px;
+    background: rgba(128,128,128,0.15);
+    margin: 0;
+    overflow: hidden;
+    opacity: 0;
+    flex-shrink: 0;
+  }
+
+  .timer-track.active { opacity: 1; }
+
+  .timer-fill {
+    height: 100%;
+    background: var(--scene-color);
+    width: 100%;
+    opacity: 0.7;
+  }
+
+  .timer-track.guess-phase .timer-fill {
+    background: var(--accent-red);
+    opacity: 1;
+  }
+
+  /* Large canvas countdown */
+  .canvas-timer {
+    position: absolute; bottom: 20px; right: 24px;
+    font-family: var(--mono);
+    font-size: clamp(80px, 16vw, 160px);
+    font-weight: 300; font-variant-numeric: tabular-nums;
+    color: var(--scene-color); line-height: 1; letter-spacing: -0.04em;
+    opacity: 0; pointer-events: none; z-index: 5;
+    transition: opacity 0.35s ease;
+  }
+  .canvas-timer.active { opacity: 0.18; }
+
+  /* CONTROLS — flex child at bottom of stage card (like Snap/Centered) */
+  .controls {
+    background: var(--scene-bg);
+    border-top: 1px solid var(--scene-color);
+    flex-shrink: 0;
+    display: none;
+  }
+
+  .controls-header {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--scene-color);
+    opacity: 0.45;
+    padding: 12px 48px;
+    border-bottom: 1px solid var(--scene-color);
+  }
+
+  .controls-body {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 20px 48px;
+    gap: 24px;
+  }
+
+  .controls-body .control-row {
+    flex: 1;
+    margin-bottom: 0;
+  }
+
+  .controls-body .btn,
+  .result-body .btn {
+    width: auto;
+    white-space: nowrap;
+    flex-shrink: 0;
+    padding: 12px 32px;
+  }
+
+  /* Target ghost gap — overlaid behind gap-visual inside gap-track, gold */
+  .gap-ghost {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    background: rgba(212, 175, 55, 0.15);
+    border: 1px solid rgba(212, 175, 55, 0.5);
+    border-left: none;
+    border-right: none;
+    height: 0;
+    display: none;
+    z-index: 0;
+    transition: height 0.7s cubic-bezier(0.34, 1.15, 0.64, 1);
+  }
+  .gap-ghost::before, .gap-ghost::after {
+    content: '';
+    position: absolute;
+    width: 5px; height: 5px;
+    background: white;
+    border: 1px solid rgba(212, 175, 55, 0.8);
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  .gap-ghost::before { top: -3px; }
+  .gap-ghost::after  { bottom: -3px; }
+  .gap-ghost.show { display: block; }
+
+  /* gap-visual in guess mode */
+  .gap-visual.guessing {
+    background: rgba(242, 72, 34, 0.08);
+    border-color: rgba(242, 72, 34, 0.4);
+    transition: height 0.05s ease;
+  }
+
+  .gap-visual.guessing::before,
+  .gap-visual.guessing::after {
+    border-color: var(--accent-red);
+  }
+
+  .control-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 24px;
+    gap: 16px;
+  }
+
+  .control-label-text {
+    font-size: 12px;
+    color: var(--scene-color);
+    opacity: 0.5;
+    width: 60px;
+  }
+
+  .val-input {
+    width: 64px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--scene-color);
+    background: transparent;
+    border: 1px solid var(--scene-color);
+    opacity: 0.5;
+    padding: 6px 8px;
+    text-align: right;
+    outline: none;
+  }
+
+  .val-input:focus {
+    opacity: 1;
+    border-color: var(--scene-color);
+    box-shadow: 0 0 0 1px var(--scene-color);
+  }
+
+  .slider-wrap {
+    flex: 1;
+    position: relative;
+    padding: 0 8px;
+  }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 6px;
+    background: var(--scene-color);
+    opacity: 0.35;
+    outline: none;
+    cursor: pointer;
+    border-radius: 3px;
+  }
+
+  input[type=range]:hover, input[type=range]:focus { opacity: 0.65; }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 24px;
+    height: 24px;
+    background: var(--scene-bg);
+    border: 2.5px solid var(--scene-color);
+    border-radius: 50%;
+    cursor: grab;
+    opacity: 1;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+  }
+
+  input[type=range]:active::-webkit-slider-thumb {
+    cursor: grabbing;
+    background: var(--scene-color);
+  }
+
+
+  /* BUTTONS */
+  .btn {
+    width: 100%;
+    padding: 12px;
+    background: var(--scene-color);
+    color: var(--scene-bg);
+    border: 1px solid var(--scene-color);
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+  }
+
+  .btn:hover { background: transparent; color: var(--scene-color); }
+  .btn:disabled { opacity: 0.25; cursor: not-allowed; pointer-events: none; }
+
+  .btn-outline { background: transparent; color: var(--scene-color); }
+  .btn-outline:hover { background: var(--scene-color); color: var(--scene-bg); }
+
+  /* RESULT BLOCK */
+  .result-block {
+    display: none;
+    margin-top: 0;
+    background: var(--scene-bg);
+    border: none;
+    flex: 1;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .result-block.show { display: flex; }
+
+  .result-block-header {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--scene-color);
+    opacity: 0.45;
+    padding: 12px 48px;
+    border-bottom: 1px solid var(--scene-color);
+    flex-shrink: 0;
+  }
+
+  .result-content {
+    padding: 48px;
+    max-width: 640px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  .result-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 32px;
+  }
+
+  .result-label {
+    font-size: 11px;
+    color: var(--scene-color);
+    opacity: 0.45;
+  }
+
+  .result-score {
+    font-family: var(--mono);
+    font-size: 32px;
+    font-weight: 400;
+    color: var(--scene-color);
+    letter-spacing: -1px;
+  }
+
+  .result-score.good { color: var(--accent-green); }
+  .result-score.ok { color: var(--accent-blue); }
+  .result-score.off { color: var(--accent-red); }
+
+  .comparison {
+    display: flex;
+    gap: 1px;
+    background: var(--scene-color);
+    border: 1px solid var(--scene-color);
+    margin-bottom: 24px;
+    opacity: 0.9;
+  }
+
+  .comp-item {
+    flex: 1;
+    background: var(--scene-bg);
+    padding: 16px;
+    opacity: 1;
+  }
+
+  .comp-label {
+    font-size: 10px;
+    color: var(--scene-color);
+    opacity: 0.45;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .comp-bar {
+    height: 8px;
+    background: var(--scene-color);
+    opacity: 0.12;
+    width: 100%;
+    margin-bottom: 8px;
+  }
+
+  .comp-fill {
+    height: 100%;
+    width: 0%;
+    transition: width 0.4s ease;
+    opacity: 1;
+  }
+
+  .comp-fill.target { background: var(--scene-color); opacity: 1; }
+  .comp-fill.guess  { background: var(--accent-blue); opacity: 1; }
+
+  .comp-val {
+    font-size: 12px;
+    font-family: var(--mono);
+    color: var(--scene-color);
+  }
+
+  /* FINAL SCREEN */
+  .final-screen {
+    display: none;
+    background: var(--scene-bg);
+    border: none;
+    flex: 1;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .final-screen.show { display: flex; }
+
+  .final-inner {
+    max-width: 520px;
+    margin: 0 auto;
+    width: 100%;
+    padding: 48px 40px 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .final-branding {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--scene-color);
+    opacity: 0.35;
+    margin-bottom: 14px;
+  }
+
+  .final-title-serif {
+    font-family: var(--serif);
+    font-size: 56px;
+    font-weight: 700;
+    color: var(--scene-color);
+    line-height: 1;
+    margin-bottom: 24px;
+  }
+
+  .final-sep {
+    width: 100%;
+    height: 1px;
+    background: var(--scene-color);
+    opacity: 0.18;
+    margin-bottom: 24px;
+  }
+
+  .final-score {
+    font-family: var(--mono);
+    font-size: 80px;
+    font-weight: 300;
+    line-height: 1;
+    color: var(--scene-color);
+    letter-spacing: -2px;
+    margin-bottom: 6px;
+  }
+
+  .final-denom-inline {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--scene-color);
+    opacity: 0.4;
+    margin-bottom: 10px;
+  }
+
+  .final-verdict {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 18px;
+    color: var(--scene-color);
+    opacity: 0.75;
+    margin-bottom: 20px;
+  }
+
+  /* Observe-phase hint */
+  .obs-hint {
+    position: absolute;
+    top: 12px;
+    left: 0; right: 0;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--scene-color);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s;
+    z-index: 3;
+  }
+  .obs-hint.show { opacity: 0.55; }
+
+  .final-actions {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+    margin-bottom: 16px;
+  }
+  .final-actions .btn { flex: 1; text-decoration: none; text-align: center; }
+
+  .round-breakdown {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+
+  .rbar-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .rbar-label { font-family: var(--mono); font-size: 11px; opacity: 0.4; width: 20px; flex-shrink: 0; text-align: left; }
+  .rbar-track { flex: 1; height: 6px; background: var(--scene-color); opacity: 0.12; position: relative; }
+  .rbar-fill  { position: absolute; left: 0; top: 0; bottom: 0; opacity: 1; transition: width 0.6s ease; }
+  .rbar-val   { font-family: var(--mono); font-size: 12px; width: 32px; flex-shrink: 0; text-align: right; }
+
+  /* START SCREEN */
+  .start-screen {
+    flex: 1;
+    background: var(--scene-bg);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .start-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 80px;
+    max-width: 900px;
+    margin: 0 auto;
+    width: 100%;
+    min-height: 0;
+  }
+
+
+  /* INTRO SPECIMEN */
+  .intro-specimen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 56px;
+    width: 100%;
+  }
+
+  .intro-top,
+  .intro-mid,
+  .intro-bottom {
+    font-family: var(--serif);
+    font-size: clamp(48px, 6vw, 120px);
+    font-weight: 400;
+    color: var(--scene-color);
+    line-height: 1;
+    text-align: center;
+  }
+
+  .intro-bottom em {
+    font-style: italic;
+    opacity: 0.5;
+  }
+
+  .intro-gap-wrap {
+    width: 40%;
+    display: flex;
+    justify-content: center;
+  }
+
+  .intro-gap {
+    width: 100%;
+    background: var(--accent-blue-bg);
+    border: 1px solid rgba(13, 153, 255, 0.5);
+    border-left: none;
+    border-right: none;
+    position: relative;
+    height: 8px;
+  }
+
+  .intro-gap::before, .intro-gap::after {
+    content: '';
+    position: absolute;
+    width: 5px; height: 5px;
+    background: white;
+    border: 1px solid var(--accent-blue);
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  .intro-gap::before { top: -3px; }
+  .intro-gap::after  { bottom: -3px; }
+
+  /* MODE SELECTION */
+  .mode-select-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--scene-color);
+    opacity: 0.45;
+    margin-bottom: 8px;
+    text-align: left;
+    width: 100%;
+    max-width: 480px;
+  }
+
+  .mode-select {
+    display: flex;
+    gap: 1px;
+    background: var(--scene-color);
+    border: 1px solid var(--scene-color);
+    margin-bottom: 16px;
+    width: 100%;
+    max-width: 480px;
+    opacity: 0.85;
+  }
+
+  .mode-btn {
+    flex: 1;
+    padding: 16px 8px;
+    background: var(--scene-bg);
+    border: none;
+    font-family: var(--mono);
+    font-size: 12px;
+    cursor: pointer;
+    text-align: center;
+    color: var(--scene-color);
+    opacity: 1;
+  }
+
+  .mode-btn:hover { opacity: 0.75; }
+
+  .mode-btn.selected {
+    background: var(--scene-color);
+    color: var(--scene-bg);
+  }
+
+  .mode-btn .mode-name {
+    display: block;
+    font-size: 13px;
+    margin-bottom: 6px;
+    letter-spacing: 0.05em;
+  }
+
+  .mode-btn .mode-timer {
+    display: block;
+    font-size: 10px;
+    opacity: 0.5;
+    letter-spacing: 0.05em;
+  }
+
+  .mode-btn.selected .mode-timer { opacity: 0.5; }
+
+  .game-area { display: flex; }
+  .game-area.hidden { display: none !important; }
+
+  .mono-small {
+    font-family: var(--mono);
+    font-size: clamp(20px, 2.5vw, 48px);
+    color: var(--scene-color);
+    opacity: 0.35;
+  }
+
+  /* Control panels (input / result) — grid-stack so controls height never changes */
+  .controls.active { display: grid; }
+  .ctrl-panel { grid-area: 1 / 1; visibility: hidden; pointer-events: none; }
+  .ctrl-panel.active { visibility: visible; pointer-events: auto; }
+
+  /* Result panel — compact header + body */
+  .result-header-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 12px 48px; border-bottom: 1px solid var(--scene-color);
+  }
+  .result-header-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--scene-color); opacity: 0.45; }
+  .result-score-inline { font-size: 24px; font-weight: 400; letter-spacing: -0.5px; }
+  .result-score-inline.good { color: var(--accent-green); }
+  .result-score-inline.ok   { color: var(--accent-blue); }
+  .result-score-inline.off  { color: var(--accent-red); }
+  .result-body {
+    display: flex; align-items: flex-start;
+    padding: 16px 48px; gap: 32px;
+  }
+  .insight-rows { flex: 1; display: flex; flex-direction: column; gap: 7px; }
+  .insight-item { display: flex; justify-content: space-between; font-size: 11px; }
+  .insight-key  { color: var(--scene-color); opacity: 0.45; }
+  .insight-val  { font-variant-numeric: tabular-nums; }
+  .clr-user     { color: var(--accent-blue); }
+  .clr-target   { color: var(--accent-gold); }
+  .insight-note {
+    flex: 1; font-size: 11px; color: var(--scene-color); opacity: 0.45;
+    line-height: 1.65; font-style: italic; max-width: 220px;
+  }
+
+  /* Gap reveal animation */
+  .gap-visual.reveal {
+    background: var(--accent-blue-bg);
+    border-color: rgba(13, 153, 255, 0.5);
+    transition: height 0.7s cubic-bezier(0.34, 1.15, 0.64, 1);
+  }
+  .gap-visual.reveal::before,
+  .gap-visual.reveal::after { border-color: var(--accent-blue); }
+
+  /* Hide status bar and progress bar — canvas timer is the only indicator */
+  .phase-label, .timer-track { display: none !important; }
+
+  /* ── RESPONSIVE — Portrait mobile ── */
+  @media (max-width: 640px) {
+    html, body { height: 100dvh; overflow: hidden; }
+
+    /* ── Header ── */
+    header   { padding: 10px 16px; }
+    .logo    { font-size: 20px; }
+    .tagline { font-size: 9px; letter-spacing: 0.08em; }
+
+    /* ── Start screen ── */
+    .start-screen  { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .start-content {
+      flex: 0 0 auto;
+      justify-content: flex-start;
+      padding: 28px 20px max(28px, env(safe-area-inset-bottom, 28px));
+    }
+    .intro-specimen { margin-bottom: 20px; }
+    .intro-top, .intro-mid, .intro-bottom { font-size: clamp(28px, 9vw, 52px); }
+    .mode-btn { padding: 12px 6px; }
+
+    /* ── Game canvas ── */
+    .frame-label { left: 16px; top: 8px; font-size: 10px; }
+    .specimen { justify-content: flex-start; overflow: hidden; }
+    .specimen-top-area    { flex: 2; min-height: 0; }
+    .specimen-bottom-area { flex: 3; min-height: 0; }
+    .specimen-line { font-size: 24px; }
+    .mono-small    { font-size: 11px; }
+
+    /* Wider gap track — more visual area on narrow screens */
+    .gap-track { width: 65%; }
+
+    /* Disable gap-visual transition — prevents animation queuing on drag */
+    .gap-visual { transition: none !important; }
+
+    /* Canvas countdown timer */
+    .canvas-timer { right: 16px; bottom: 12px; font-size: clamp(60px, 18vw, 110px); }
+
+    /* ── Controls — switch from grid-stack to block so height = active panel only ── */
+    .controls.active { display: block; }
+    .ctrl-panel { display: none; }
+    .ctrl-panel.active { display: block; }
+    .controls-header { display: none; }
+    .controls-body {
+      flex-direction: column; align-items: stretch;
+      padding: 10px 16px max(10px, env(safe-area-inset-bottom, 10px));
+      gap: 8px;
+    }
+    .controls-body .control-row { flex: none; margin-bottom: 0; }
+    .controls-body .btn  { padding: 12px; }
+    input[type=range]    { height: 44px; width: 100%; }
+    input[type=range]::-webkit-slider-thumb { width: 28px; height: 28px; }
+    .val-input { width: 52px; font-size: 14px; padding: 6px 6px; }
+
+    /* ── Result panel ── */
+    .result-header-row { padding: 10px 16px; }
+    .result-body {
+      padding: 12px 16px max(12px, env(safe-area-inset-bottom, 12px));
+      flex-direction: column; gap: 8px;
+    }
+    .result-body .btn { align-self: stretch; width: 100%; margin-top: 4px; }
+    .insight-note { display: none; }
+    .insight-item { font-size: 11px; }
+
+    /* ── Final screen ── */
+    .final-inner { padding: 28px 20px max(28px, env(safe-area-inset-bottom, 28px)); }
+    .final-score   { font-size: 56px; }
+    .final-verdict { font-size: 15px; margin-bottom: 16px; }
+
+    /* ── Challenge screens ── */
+    #challengeIntro  { align-items: flex-start; padding-top: 72px; }
+    .chal-creator    { font-size: 28px; }
+    .cr-header, .cr-scroll, .cr-actions { padding-left: 16px; padding-right: 16px; }
+    .cr-rounds       { display: none; }
+  }
+
+  /* ── RESPONSIVE — Landscape mobile ── */
+  @media (max-height: 500px) and (max-width: 900px) {
+    /* ── Header ── */
+    header {
+      padding: 6px max(16px, env(safe-area-inset-right, 16px)) 6px max(16px, env(safe-area-inset-left, 16px));
+    }
+    .tagline { display: none; }
+    .logo    { font-size: 18px; }
+
+    /* ── Start screen ── */
+    .start-screen  { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .start-content {
+      flex: 0 0 auto; justify-content: flex-start;
+      padding: 12px max(16px, env(safe-area-inset-right, 16px)) max(12px, env(safe-area-inset-bottom, 12px)) max(16px, env(safe-area-inset-left, 16px));
+    }
+    .intro-specimen { display: none; }
+
+    /* ── Canvas fills height, controls strip at bottom ── */
+    .stage-card { flex-direction: column; }
+    .specimen { flex: 1; min-width: 0; justify-content: center; }
+    .specimen-top-area    { flex: 1; }
+    .specimen-bottom-area { flex: 1; }
+    .specimen-line { font-size: 22px; }
+    .mono-small    { font-size: 11px; }
+    .gap-track     { width: 60%; }
+    .frame-label   { left: 14px; font-size: 10px; }
+
+    /* ── Controls bottom strip ── */
+    .controls-header { display: none; }
+    .controls {
+      width: 100%; flex-shrink: 0;
+      border-top: 1px solid var(--scene-color);
+      border-left: none;
+      overflow-y: visible;
+      padding-bottom: env(safe-area-inset-bottom, 0);
+    }
+    .controls-body {
+      flex-direction: row; align-items: center; flex-wrap: wrap;
+      padding: 8px 14px max(8px, env(safe-area-inset-bottom, 8px));
+      gap: 8px;
+    }
+    .controls-body .control-row { flex: 1 1 auto; }
+    .controls-body .btn { padding: 8px 14px; }
+    input[type=range] { height: 32px; width: 100%; }
+    input[type=range]::-webkit-slider-thumb { width: 20px; height: 20px; }
+
+    /* ── Result panel (bottom strip) ── */
+    .result-header-row { padding: 8px 14px; }
+    .result-body {
+      padding: 8px 14px max(8px, env(safe-area-inset-bottom, 8px));
+      flex-direction: row; flex-wrap: wrap; gap: 8px; align-items: center;
+    }
+    .result-body .btn { align-self: auto; width: auto; }
+    .insight-note { display: none; }
+    .insight-item { font-size: 11px; }
+
+    /* ── Canvas timer ── */
+    .canvas-timer { font-size: clamp(40px, 8vh, 80px); right: 14px; }
+
+    /* ── Final screen ── */
+    .final-inner { padding: 16px max(16px, env(safe-area-inset-right, 16px)) max(16px, env(safe-area-inset-bottom, 16px)) max(16px, env(safe-area-inset-left, 16px)); }
+    .final-score   { font-size: 48px; }
+    .final-verdict { font-size: 14px; margin-bottom: 12px; }
+  }
+
+  /* ── MULTIPLAYER ── */
+  .multi-overlay {
+    position: fixed; inset: 0; z-index: 200;
+    background: var(--scene-bg);
+    display: none; flex-direction: column;
+  }
+  .multi-overlay.show { display: flex; }
+  .multi-review-body {
+    flex: 1; overflow-y: auto;
+    padding: 20px 48px; display: flex; flex-direction: column; gap: 0;
+  }
+  .multi-review-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 11px 0; border-bottom: 1px solid var(--scene-color);
+    font-size: 12px;
+  }
+  .multi-review-row-left { display: flex; align-items: baseline; gap: 14px; }
+  .multi-review-rank { font-size: 10px; opacity: 0.4; width: 16px; flex-shrink: 0; }
+  .multi-review-name { font-size: 13px; }
+  .multi-review-name.is-me { color: var(--accent-blue); }
+  .multi-review-scores { display: flex; gap: 20px; align-items: baseline; }
+  .multi-review-round-score { font-size: 11px; opacity: 0.45; }
+  .multi-review-total { font-size: 20px; font-weight: 400; }
+  .multi-review-footer {
+    flex-shrink: 0; padding: 16px 48px;
+    border-top: 1px solid var(--scene-color);
+  }
+  .multi-wait-bar {
+    font-size: 11px; opacity: 0.45; font-style: italic;
+    padding: 8px 0;
+  }
+  @media (max-width: 640px) {
+    .multi-overlay { padding-top: env(safe-area-inset-top, 0); }
+    .multi-review-body { padding: 16px; }
+    .multi-review-footer {
+      padding: 14px 16px max(14px, env(safe-area-inset-bottom, 14px));
+    }
+    .multi-wait-bar { font-size: 12px; opacity: 0.6; }
+    .multi-review-row { font-size: 13px; }
+    .multi-review-total { font-size: 22px; }
+  }
+
+  /* ── Challenge Intro Screen ──────────────────────────────────────────────── */
+  #challengeIntro {
+    position: fixed; inset: 0; z-index: 40;
+    background: var(--scene-bg);
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  #challengeIntro.hidden { display: none; }
+  .chal-inner { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 14px; }
+  .chal-from { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.4; }
+  .chal-creator { font-family: var(--serif); font-size: 40px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.1; }
+  .chal-sub  { font-size: 13px; opacity: 0.5; }
+  .chal-badge {
+    display: inline-block; align-self: flex-start;
+    border: 1px solid var(--scene-color); border-radius: 2px;
+    padding: 3px 10px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.55;
+  }
+  .chal-name-inp {
+    font-family: var(--mono); font-size: 14px;
+    background: none; border: 1px solid var(--scene-color); border-radius: 4px;
+    color: var(--scene-color); padding: 10px 14px; width: 100%; outline: none; margin-top: 4px;
+  }
+  .chal-name-inp::placeholder { opacity: 0.35; color: var(--scene-color); }
+
+  /* ── Challenge Result Overlay ────────────────────────────────────────────── */
+  #challengeResult {
+    position: fixed; inset: 0; z-index: 50;
+    background: var(--scene-bg);
+    display: flex; flex-direction: column;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+  #challengeResult.show { opacity: 1; pointer-events: all; }
+  .cr-header {
+    padding: 16px 48px; border-bottom: 1px solid var(--scene-color);
+    font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase;
+    display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+  }
+  .cr-code { opacity: 0.35; font-size: 10px; letter-spacing: 0.2em; }
+  .cr-scroll { flex: 1; overflow-y: auto; padding: 8px 48px 16px; }
+  .cr-row {
+    display: flex; align-items: baseline; gap: 12px;
+    padding: 10px 0; border-bottom: 1px solid rgba(128,128,128,0.18);
+  }
+  .cr-rank  { font-size: 10px; opacity: 0.35; width: 16px; flex-shrink: 0; text-align: right; }
+  .cr-name  { flex: 1; font-size: 13px; }
+  .cr-name.is-me { color: var(--accent-blue); }
+  .cr-rounds { display: flex; gap: 8px; align-items: baseline; }
+  .cr-rscore { font-size: 10px; opacity: 0.4; }
+  .cr-total  { font-size: 20px; min-width: 44px; text-align: right; }
+  .cr-waiting { font-size: 13px; opacity: 0.45; font-style: italic; padding: 24px 0; }
+  .cr-actions {
+    padding: 16px 48px; border-top: 1px solid var(--scene-color);
+    display: flex; gap: 8px; flex-shrink: 0;
+  }
+
+  /* ── "Challenge Friends" row on final screen ─────────────────────────────── */
+  .chal-final-row { display: none; flex-direction: column; gap: 8px; margin-top: 4px; width: 100%; }
+  .chal-final-row.show { display: flex; }
+  .chal-final-inp-row { display: flex; gap: 8px; align-items: center; }
+  .chal-creator-inp {
+    font-family: var(--mono); font-size: 13px;
+    background: none; border: 1px solid var(--scene-color); border-radius: 4px;
+    color: var(--scene-color); padding: 8px 12px; flex: 1; outline: none; min-width: 0;
+  }
+  .chal-creator-inp::placeholder { opacity: 0.35; color: var(--scene-color); }
+
+  @media (max-width: 640px) {
+    #challengeIntro { align-items: flex-start; padding-top: 80px; }
+    .chal-creator   { font-size: 30px; }
+    .cr-header, .cr-scroll, .cr-actions { padding-left: 24px; padding-right: 24px; }
+    .cr-rounds      { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:center;gap:20px;">
+    <a class="logo" href="index.html" style="text-decoration:none;">Sp<span>a</span>ced</a>
+    <div class="round-boxes" id="roundBoxes" style="display:none;"></div>
+  </div>
+  <div class="tagline" id="headerTagline">Design Perception Game</div>
+</header>
+
+<!-- START SCREEN -->
+<div class="game-wrap" id="startScreen">
+  <div class="start-screen">
+    <div class="start-content">
+
+      <div class="intro-specimen">
+        <div class="intro-top">Can you</div>
+        <div class="intro-mid">remember</div>
+        <div class="intro-gap-wrap">
+          <div class="intro-gap" id="introGap"></div>
+        </div>
+        <div class="intro-bottom"><em>space?</em></div>
+      </div>
+
+      <div class="mode-select-label">Select difficulty</div>
+      <div class="mode-select">
+        <button class="mode-btn" id="modeEasy" onclick="selectMode('easy')">
+          <span class="mode-name">Easy</span>
+          <span class="mode-timer">5s → 2s</span>
+        </button>
+        <button class="mode-btn" id="modeMedium" onclick="selectMode('medium')">
+          <span class="mode-name">Medium</span>
+          <span class="mode-timer">3s → 1s</span>
+        </button>
+        <button class="mode-btn" id="modeHard" onclick="selectMode('hard')">
+          <span class="mode-name">Hard</span>
+          <span class="mode-timer">1.5s → 0.4s</span>
+        </button>
+      </div>
+
+      <button class="btn" id="startBtn" disabled onclick="startGame()" style="max-width:480px;">Start</button>
+    </div>
+  </div>
+</div>
+
+<!-- GAME AREA -->
+<div class="game-wrap game-area hidden" id="gameArea">
+
+  <div class="phase-label" id="phaseLabel">
+    <span id="phaseLabelText">Status: Observation</span>
+    <span class="timer-count" id="timerCount"></span>
+  </div>
+  <div class="timer-track" id="timerTrack">
+    <div class="timer-fill" id="timerFill"></div>
+  </div>
+
+  <!-- STAGE CARD -->
+  <div class="stage-card" id="stageCard">
+    <div id="obsHint" class="obs-hint">Memorize the spacing</div>
+    <div class="frame-label" id="frameLabel"># Frame 1</div>
+    <div class="specimen" id="specimen">
+      <div class="canvas-timer" id="canvasTimer"></div>
+      <div class="specimen-top-area">
+        <div class="specimen-line" id="specimenTop"></div>
+      </div>
+      <div class="specimen-bottom-area">
+        <div class="specimen-gap">
+          <div class="gap-track" id="gapTrack">
+            <div class="gap-ghost" id="gapGhost"></div>
+            <div class="gap-visual" id="gapVisual"></div>
+          </div>
+        </div>
+        <div class="specimen-line mono-small" id="specimenBottom"></div>
+      </div>
+    </div>
+
+    <!-- CONTROLS — overlay inside stage card -->
+    <div class="controls" id="controls">
+
+      <!-- Input panel -->
+      <div class="ctrl-panel active" id="ctrlInput">
+        <div class="controls-header">Properties</div>
+        <div class="controls-body">
+          <div class="control-row">
+            <div class="control-label-text">Spacing</div>
+            <div class="slider-wrap">
+              <input type="range" id="gapSlider" min="4" max="80" step="1" value="4" oninput="updatePreview(this.value)">
+            </div>
+            <input type="text" class="val-input" id="valueInput" value="4" onchange="updateSliderFromInput(this.value)">
+          </div>
+          <button class="btn" onclick="submitGuess()">Commit Changes</button>
+        </div>
+      </div>
+
+      <!-- Result panel -->
+      <div class="ctrl-panel" id="ctrlResult">
+        <div class="result-header-row">
+          <span class="result-header-lbl">Inspection</span>
+          <span class="result-score-inline" id="roundScore">—</span>
+        </div>
+        <div class="result-body">
+          <div class="insight-rows" id="insightRows"></div>
+          <div class="insight-note" id="insightNote"></div>
+          <button class="btn btn-outline" id="btnNext" onclick="nextRound()" style="align-self:flex-end;">Next Frame</button>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- RESULT (unused — result now shows in controls overlay) -->
+  <div class="result-block" id="resultBlock" style="display:none;"></div>
+
+  <!-- FINAL -->
+  <div class="final-screen" id="finalScreen">
+    <div class="final-inner">
+      <div class="final-branding">Design Dual</div>
+      <div class="final-title-serif">Spaced</div>
+      <div class="final-sep"></div>
+      <div class="final-score" id="finalScore">0</div>
+      <div class="final-denom-inline">/ 50.0 points</div>
+      <div class="final-verdict" id="finalVerdict"></div>
+      <div class="final-sep"></div>
+      <div class="round-breakdown" id="roundBreakdown"></div>
+      <div class="final-actions">
+        <button class="btn btn-outline" id="shareBtn" onclick="shareResult()">Share</button>
+        <button class="btn" onclick="restartGame()">Play Again</button>
+        <a class="btn btn-outline" href="index.html">Home</a>
+      </div>
+      <div class="chal-final-row" id="chalFinalRow">
+        <div class="chal-final-inp-row">
+          <input class="chal-creator-inp" id="chalCreatorInp" type="text" maxlength="16" placeholder="Your name" autocomplete="off">
+          <button class="btn" id="chalFinalBtn" style="flex-shrink:0;" onclick="_challengeFromFinal()">Challenge Friends</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Challenge Intro Screen (shown when ?c=CODE is in URL) -->
+<div id="challengeIntro" class="hidden">
+  <div class="chal-inner">
+    <div class="chal-from">Challenged by</div>
+    <div class="chal-creator" id="chalCreatorName">—</div>
+    <div class="chal-sub">Can you beat their score?</div>
+    <div class="chal-badge" id="chalModeBadge">Medium Mode</div>
+    <input class="chal-name-inp" id="chalNameInp" type="text" maxlength="16" placeholder="Your name (optional)" autocomplete="off">
+    <button class="btn" id="chalStartBtn">Start Game</button>
+  </div>
+</div>
+
+<!-- Challenge Result Overlay -->
+<div id="challengeResult">
+  <div class="cr-header">
+    <span>Challenge Results</span>
+    <span class="cr-code" id="crCode"></span>
+  </div>
+  <div class="cr-scroll" id="crRows"></div>
+  <div class="cr-actions">
+    <button class="btn btn-outline" id="crCopyBtn">Copy Link</button>
+    <button class="btn" onclick="_chalPlayAgain()">Play Again</button>
+  </div>
+</div>
+
+<!-- MULTI: Round review overlay (state='review') -->
+<div class="multi-overlay" id="multiReview">
+  <div class="result-header-row" style="flex-shrink:0;">
+    <span class="result-header-lbl">Round <span id="mRevNum">1</span> — Results</span>
+    <span class="result-score-inline" id="mRevMyScore">—</span>
+  </div>
+  <div class="multi-review-body" id="mRevRows"></div>
+  <div class="multi-review-footer">
+    <div id="mRevHostZone" style="display:none;">
+      <button class="btn" onclick="mHostNext()">Next Round →</button>
+    </div>
+    <div id="mRevGuestZone" class="multi-wait-bar" style="display:none;">
+      Waiting for host to advance…
+    </div>
+  </div>
+</div>
+
+<!-- Firebase + multiplayer engine — must come before game script -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script src="room.js"></script>
+
+<script>
+  // On mobile: compute scale so the max gap (80px) fills ~half the specimen area.
+  // Formula: (viewport height − header ~50px − controls ~110px) / 2 halves / 90px target
+  const DISPLAY_SCALE = window.innerWidth < 640
+    ? Math.max(2, Math.min(3, Math.floor((window.innerHeight - 160) / 180)))
+    : 4;
+
+  // Intro gap animation
+  (function animateIntroGap() {
+    const el = document.getElementById('introGap');
+    if (!el) return;
+    const keyframes = [8, 48, 16, 72, 32, 56, 24, 80, 8];
+    let idx = 0;
+
+    function next() {
+      const target = keyframes[idx % keyframes.length];
+      el.style.transition = 'height 1.1s cubic-bezier(0.76, 0, 0.24, 1)';
+      el.style.height = (target * 2.5) + 'px';
+      idx++;
+      setTimeout(next, 1600);
+    }
+
+    setTimeout(next, 400);
+  })(); // visual gap = actual gap * DISPLAY_SCALE
+
+  // SCENE PALETTES
+  const SCENES = [
+    { bg: '#1A2840', color: '#F0B888' },  // slate blue + peach
+    { bg: '#E8F0E4', color: '#162810' },  // pale sage + forest
+    { bg: '#1C1040', color: '#C4B0F0' },  // midnight indigo + lavender
+    { bg: '#8B2E1A', color: '#F5E8D0' },  // terracotta + ivory
+    { bg: '#1E2810', color: '#F5C840' },  // dark moss + sunflower
+  ];
+
+  function applyScene(scene) {
+    const root = document.documentElement;
+    root.style.setProperty('--scene-bg',    scene.bg);
+    root.style.setProperty('--scene-color', scene.color);
+    root.style.setProperty('--scene-dot',   scene.color + '1F');
+  }
+
+  // GAME CONFIG
+  const MODES = {
+    easy: {
+      label: 'Easy',
+      // spread values, far apart — easy to distinguish
+      pool: [7, 18, 34, 52, 67, 79, 11, 43, 60, 24],
+      observeTimers: [5000, 4500, 4000, 3000, 2000],
+      guessTimer: 12000,
+    },
+    medium: {
+      label: 'Medium',
+      // varied, no obvious pattern
+      pool: [5, 13, 21, 30, 38, 47, 55, 63, 71, 9, 26, 44, 58, 69, 77],
+      observeTimers: [3000, 2500, 2000, 1500, 1000],
+      guessTimer: 8000,
+    },
+    hard: {
+      label: 'Hard',
+      // close together, clustered in the middle — hardest to distinguish
+      pool: [17, 21, 26, 31, 35, 40, 44, 49, 54, 58, 63, 68, 23, 37, 51],
+      observeTimers: [1500, 1000, 800, 600, 400],
+      guessTimer: 5000,
+    }
+  };
+
+  const ROUND_PAIRS = [
+    { top: 'Headline',   bottom: 'Body text',      topSize: 32 },
+    { top: 'Chapter I',  bottom: 'Introduction',   topSize: 32 },
+    { top: 'Title',      bottom: 'Subheading',     topSize: 32 },
+    { top: 'Heading',    bottom: 'Caption text',   topSize: 32 },
+    { top: 'Display',    bottom: 'Label',          topSize: 32 },
+    { top: 'Abstract',   bottom: 'Keywords',       topSize: 32 },
+    { top: 'Prologue',   bottom: 'Part One',       topSize: 32 },
+    { top: 'Foreword',   bottom: 'Preface',        topSize: 32 },
+    { top: 'Section II', bottom: 'Paragraph',      topSize: 32 },
+    { top: 'Appendix',   bottom: 'Notes',          topSize: 32 },
+    { top: 'Masthead',   bottom: 'Dateline',       topSize: 32 },
+    { top: 'Pull Quote', bottom: 'Source',         topSize: 32 },
+    { top: 'Byline',     bottom: 'Publication',    topSize: 32 },
+    { top: 'Index',      bottom: 'Page ref.',      topSize: 32 },
+    { top: 'Exhibit A',  bottom: 'Footnote',       topSize: 32 },
+  ];
+
+  let selectedMode = null;
+  let ROUNDS = [];
+  let currentRound = 0;
+  let scores = [];
+  let _gameSeed = 0;
+  let observeTimeout = null;
+  let guessTimeout = null;
+  let countdownInterval = null;
+
+  function showPanel(which) {
+    document.getElementById('ctrlInput').className  = 'ctrl-panel' + (which === 'input'  ? ' active' : '');
+    document.getElementById('ctrlResult').className = 'ctrl-panel' + (which === 'result' ? ' active' : '');
+  }
+
+  function selectMode(mode) {
+    selectedMode = mode;
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('selected'));
+    document.getElementById('mode' + mode.charAt(0).toUpperCase() + mode.slice(1)).classList.add('selected');
+    document.getElementById('startBtn').disabled = false;
+  }
+
+  function buildRounds() {
+    const cfg = MODES[selectedMode];
+    const pool  = [...cfg.pool].sort(() => Math.random() - 0.5);
+    const gaps  = pool.slice(0, 5);
+    const pairs = [...ROUND_PAIRS].sort(() => Math.random() - 0.5).slice(0, 5);
+    ROUNDS = pairs.map((pair, i) => ({ ...pair, gap: gaps[i] }));
+  }
+
+  // Seeded version for multiplayer — all players get identical rounds
+  function buildRoundsSeeded(seed) {
+    const rng   = tdRng(seed);
+    const cfg   = MODES[selectedMode];
+    const pool  = [...cfg.pool].sort(() => rng() - 0.5);
+    const gaps  = pool.slice(0, 5);
+    const pairs = [...ROUND_PAIRS].sort(() => rng() - 0.5).slice(0, 5);
+    ROUNDS = pairs.map((pair, i) => ({ ...pair, gap: gaps[i] }));
+  }
+
+  // Multiplayer state (safe to use in solo mode — stays falsy)
+  let _multiObsDur   = null;
+  let _multiGuessDur = null;
+  let _multiSubmitted = false;
+
+  function startGame() {
+    _gameSeed = Math.floor(Math.random() * 0x7FFFFFFF);
+    buildRoundsSeeded(_gameSeed);
+    document.getElementById('startScreen').style.display = 'none';
+    document.getElementById('gameArea').classList.remove('hidden');
+    document.getElementById('headerTagline').textContent = MODES[selectedMode].label + ' Mode';
+    buildRoundBar();
+    loadRound(0);
+  }
+
+  function buildRoundBar() {
+    const boxes = document.getElementById('roundBoxes');
+    boxes.innerHTML = '';
+    boxes.style.display = 'flex';
+    for (let i = 0; i < ROUNDS.length; i++) {
+      const b = document.createElement('div');
+      b.className = 'round-box' + (i === 0 ? ' active' : '');
+      b.id = 'pip-' + i;
+      boxes.appendChild(b);
+    }
+  }
+
+  function loadRound(idx) {
+    currentRound = idx;
+    const round = ROUNDS[idx];
+
+    const card = document.getElementById('stageCard');
+
+    // Reset UI
+    document.getElementById('controls').classList.remove('active');
+    document.getElementById('finalScreen').classList.remove('show');
+    card.style.display = 'flex';
+    card.classList.add('revealed');
+    document.getElementById('timerTrack').style.display = '';
+    document.getElementById('timerTrack').classList.remove('guess-phase');
+    const gv = document.getElementById('gapVisual');
+    gv.classList.remove('guessing', 'reveal');
+    gv.style.transition = '';
+    document.getElementById('gapGhost').classList.remove('show');
+    document.getElementById('gapGhost').style.height = '0px';
+    showPanel('input');
+    stopCountdown();
+
+    // Frame label
+    document.getElementById('frameLabel').textContent = '# Frame ' + (idx + 1);
+
+    // Scene palette
+    applyScene(SCENES[idx % SCENES.length]);
+
+    // Round boxes
+    for (let i = 0; i < ROUNDS.length; i++) {
+      document.getElementById('pip-' + i).className =
+        'round-box' + (i < idx ? ' done' : i === idx ? ' active' : '');
+    }
+
+    // Phase label
+    const phaseLabel = document.getElementById('phaseLabel');
+    document.getElementById('phaseLabelText').textContent = 'Status: Observation';
+    document.getElementById('timerCount').textContent = '';
+    phaseLabel.className = 'phase-label active-phase';
+
+    // Specimen
+    document.getElementById('specimenTop').textContent = round.top;
+    document.getElementById('specimenBottom').textContent = round.bottom;
+    // Fix track height to target gap — texts stay in place throughout the round
+    const trackH = round.gap * DISPLAY_SCALE;
+    document.getElementById('gapTrack').style.height = trackH + 'px';
+    document.getElementById('gapVisual').style.height = trackH + 'px';
+
+    // Pre-populate result panel so ctrlResult has its full height from the start
+    // (prevents controls div from resizing when result appears, which would shift specimen)
+    const placeholder = [
+      { k: 'Design Spec', v: '—', c: 'clr-target' },
+      { k: 'Your guess',  v: '—', c: 'clr-user'   },
+      { k: 'Difference',  v: '—', c: ''            },
+    ].map(r => `<div class="insight-item"><span class="insight-key">${r.k}</span><span class="insight-val ${r.c}">${r.v}</span></div>`).join('');
+    document.getElementById('insightRows').innerHTML = placeholder;
+    document.getElementById('insightNote').textContent = '\u00a0';
+    document.getElementById('roundScore').textContent = '—';
+    document.getElementById('roundScore').className = 'result-score-inline';
+
+    // Reset slider to minimum, show controls locked during observation
+    document.getElementById('gapSlider').value = 4;
+    document.getElementById('valueInput').value = 4;
+    document.getElementById('gapSlider').disabled = true;
+    document.getElementById('valueInput').disabled = true;
+    document.querySelector('#ctrlInput .btn').disabled = true;
+    document.getElementById('controls').classList.add('active');
+    document.getElementById('obsHint').classList.add('show');
+
+    startObserveTimer();
+  }
+
+  function startCountdown(durationMs) {
+    if (countdownInterval) clearInterval(countdownInterval);
+    const end = Date.now() + durationMs;
+    const timerCount = document.getElementById('timerCount');
+    const ct = document.getElementById('canvasTimer');
+    const init = (durationMs / 1000).toFixed(1);
+    timerCount.textContent = init + 's';
+    ct.textContent = init;
+    ct.classList.add('active');
+    countdownInterval = setInterval(() => {
+      const remaining = Math.max(0, end - Date.now());
+      const s = (remaining / 1000).toFixed(1);
+      timerCount.textContent = s + 's';
+      ct.textContent = s;
+      if (remaining <= 0) clearInterval(countdownInterval);
+    }, 50);
+  }
+
+  function stopCountdown() {
+    if (countdownInterval) clearInterval(countdownInterval);
+    document.getElementById('timerCount').textContent = '';
+    const ct = document.getElementById('canvasTimer');
+    ct.textContent = ''; ct.classList.remove('active');
+  }
+
+  function startObserveTimer() {
+    const duration = _multiObsDur ?? MODES[selectedMode].observeTimers[currentRound];
+    _multiObsDur = null;
+    const timerTrack = document.getElementById('timerTrack');
+    const timerFill = document.getElementById('timerFill');
+
+    timerTrack.classList.add('active');
+    timerFill.style.transition = 'none';
+    timerFill.style.width = '100%';
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        timerFill.style.transition = `width ${duration}ms linear`;
+        timerFill.style.width = '0%';
+      });
+    });
+
+    startCountdown(duration);
+
+    if (observeTimeout) clearTimeout(observeTimeout);
+    observeTimeout = setTimeout(() => {
+      if (typeof ROOM_CODE !== 'undefined' && ROOM_CODE) {
+        tdEndObserve(ROOM_CODE, selectedMode);
+      } else {
+        revealGuessPhase();
+      }
+    }, duration);
+  }
+
+  function revealGuessPhase() {
+    // Switch gap-visual to guess mode starting from minimum; animate track collapse once
+    const gapVisual = document.getElementById('gapVisual');
+    gapVisual.classList.add('guessing');
+    const minH = 4 * DISPLAY_SCALE;
+    const gapTrack = document.getElementById('gapTrack');
+    gapTrack.style.transition = 'height 0.4s cubic-bezier(0.34, 1.15, 0.64, 1)';
+    gapVisual.style.height = minH + 'px';
+    gapTrack.style.height  = minH + 'px';
+    setTimeout(() => { gapTrack.style.transition = 'none'; }, 450);
+
+    // Reset slider/input to minimum
+    document.getElementById('gapSlider').value = 4;
+    document.getElementById('valueInput').value = 4;
+
+    document.getElementById('gapSlider').disabled = false;
+    document.getElementById('valueInput').disabled = false;
+    document.querySelector('#ctrlInput .btn').disabled = false;
+    document.getElementById('obsHint').classList.remove('show');
+
+    document.getElementById('phaseLabelText').textContent = 'Status: Input Required';
+    document.getElementById('phaseLabel').className = 'phase-label guess-phase';
+
+    startGuessTimer();
+  }
+
+  function startGuessTimer() {
+    const duration = _multiGuessDur ?? MODES[selectedMode].guessTimer;
+    _multiGuessDur = null;
+    const timerTrack = document.getElementById('timerTrack');
+    const timerFill = document.getElementById('timerFill');
+
+    timerTrack.classList.add('guess-phase');
+    timerFill.style.transition = 'none';
+    timerFill.style.width = '100%';
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        timerFill.style.transition = `width ${duration}ms linear`;
+        timerFill.style.width = '0%';
+      });
+    });
+
+    startCountdown(duration);
+
+    if (guessTimeout) clearTimeout(guessTimeout);
+    guessTimeout = setTimeout(() => {
+      if (typeof ROOM_CODE !== 'undefined' && ROOM_CODE) {
+        submitGuess();
+        tdEndGuess(ROOM_CODE, currentRound);
+      } else {
+        submitGuess();
+      }
+    }, duration);
+  }
+
+
+  function updatePreview(val) {
+    const clamped = Math.max(4, Math.min(80, parseInt(val) || 4));
+    document.getElementById('valueInput').value = clamped;
+    document.getElementById('gapSlider').value = clamped;
+    const h = clamped * DISPLAY_SCALE;
+    document.getElementById('gapVisual').style.height = h + 'px';
+    document.getElementById('gapTrack').style.height = h + 'px';
+  }
+
+  function updateSliderFromInput(val) {
+    updatePreview(val);
+  }
+
+  function submitGuess() {
+    if (guessTimeout) clearTimeout(guessTimeout);
+    stopCountdown();
+
+    const round = ROUNDS[currentRound];
+    const guess = parseInt(document.getElementById('gapSlider').value);
+    const target = round.gap;
+
+    const diff = Math.abs(guess - target);
+    const maxDiff = 50; // stricter: 50px off = 0 pts (was 76)
+    const rawScore = Math.max(0, 10 - (diff / maxDiff) * 10);
+    const score = Math.round(rawScore * 10) / 10;
+
+    scores.push(score);
+
+    // Score display
+    const scoreEl = document.getElementById('roundScore');
+    scoreEl.textContent = score.toFixed(1);
+    scoreEl.className = 'result-score-inline ' + (score >= 8 ? 'good' : score >= 5 ? 'ok' : 'off');
+    document.getElementById('insightRows').innerHTML = [
+      { k: 'Design Spec', v: target + 'px', c: 'clr-target' },
+      { k: 'Your guess',  v: guess  + 'px', c: 'clr-user' },
+      { k: 'Difference',  v: diff   + 'px', c: ''         },
+    ].map(r => `<div class="insight-item"><span class="insight-key">${r.k}</span><span class="insight-val ${r.c}">${r.v}</span></div>`).join('');
+
+    document.getElementById('insightNote').textContent =
+      diff === 0 ? 'Pixel-perfect spacing recall.' :
+      diff <= 4  ? 'Sharp memory. Barely any drift.' :
+      diff <= 12 ? 'Close. Minor compression in recall.' :
+                   'The eye loses fine spacing over time.';
+
+    const isLast = currentRound === ROUNDS.length - 1;
+    document.getElementById('btnNext').textContent = isLast ? 'View Report' : 'Next Frame';
+
+    // Expand track to fit the larger of guess or target before ghost animates
+    const trackH = Math.max(guess, target) * DISPLAY_SCALE;
+    const gapTrack = document.getElementById('gapTrack');
+    gapTrack.style.transition = 'none';
+    gapTrack.style.height = trackH + 'px';
+
+    // Keep user's gap visible (blue), animate ghost to target (gold)
+    const gapVisual = document.getElementById('gapVisual');
+    gapVisual.classList.remove('guessing');
+    gapVisual.classList.add('reveal');
+
+    const gapGhost = document.getElementById('gapGhost');
+    gapGhost.style.height = '0px';
+    gapGhost.classList.add('show');
+    setTimeout(() => {
+      gapGhost.style.height = (target * DISPLAY_SCALE) + 'px';
+    }, 80);
+
+    // Show result inside controls overlay (keep stageCard visible)
+    document.getElementById('timerTrack').classList.remove('active');
+    document.getElementById('controls').classList.add('active');
+    showPanel('result');
+
+    document.getElementById('pip-' + currentRound).className = 'round-box done';
+    document.getElementById('phaseLabelText').textContent = 'Status: Inspecting';
+    document.getElementById('phaseLabel').className = 'phase-label';
+
+    // Multiplayer: report score + show wait status on btnNext
+    if (typeof ROOM_CODE !== 'undefined' && ROOM_CODE && !_multiSubmitted) {
+      _multiSubmitted = true;
+      document.getElementById('btnNext').textContent = 'Waiting for others…';
+      document.getElementById('btnNext').disabled = true;
+      tdSubmitRound(ROOM_CODE, currentRound, { guess }, score);
+    }
+  }
+
+  function nextRound() {
+    if (currentRound >= ROUNDS.length - 1) {
+      showFinal();
+    } else {
+      loadRound(currentRound + 1);
+    }
+  }
+
+  function showFinal() {
+    document.getElementById('controls').classList.remove('active');
+    document.getElementById('obsHint').classList.remove('show');
+    document.getElementById('stageCard').style.display = 'none';
+
+    const phaseLabel = document.getElementById('phaseLabel');
+    document.getElementById('phaseLabelText').textContent = 'Status: Complete';
+    phaseLabel.className = 'phase-label';
+
+    const total = scores.reduce((a, b) => a + b, 0);
+    const rounded = Math.round(total * 10) / 10;
+
+    const color = rounded >= 40 ? 'var(--accent-green)' : rounded >= 25 ? 'var(--scene-color)' : 'var(--accent-red)';
+    const fScore = document.getElementById('finalScore');
+    fScore.textContent = rounded.toFixed(1);
+    fScore.style.color = color;
+
+    const verdicts = [
+      [45, "Pixel Perfect Alignment."],
+      [35, "Clean spacing. Minor deviations."],
+      [25, "Draft quality. Review constraints."],
+      [15, "Broken layout."],
+      [0,  "CSS has crashed."]
+    ];
+    const verdict = verdicts.find(v => rounded >= v[0]);
+    document.getElementById('finalVerdict').textContent = verdict ? verdict[1] : verdicts[verdicts.length - 1][1];
+
+    const breakdown = document.getElementById('roundBreakdown');
+    breakdown.innerHTML = '';
+    scores.forEach((s, i) => {
+      const c = s >= 8 ? 'var(--accent-green)' : s >= 5 ? 'var(--scene-color)' : 'var(--accent-red)';
+      const row = document.createElement('div');
+      row.className = 'rbar-row';
+      row.innerHTML = `<span class="rbar-label">F${i + 1}</span><div class="rbar-track"><div class="rbar-fill" style="width:0%;background:${c}"></div></div><span class="rbar-val" style="color:${c}">${s.toFixed(1)}</span>`;
+      breakdown.appendChild(row);
+    });
+    requestAnimationFrame(() => {
+      breakdown.querySelectorAll('.rbar-fill').forEach((el, i) => {
+        el.style.width = (scores[i] / 10 * 100) + '%';
+      });
+    });
+
+    document.getElementById('finalScreen').classList.add('show');
+    window._afterFinal?.();
+  }
+
+  function restartGame() {
+    scores = [];
+    _gameSeed = Math.floor(Math.random() * 0x7FFFFFFF);
+    buildRoundsSeeded(_gameSeed);
+    document.getElementById('finalScreen').classList.remove('show');
+    buildRoundBar();
+    loadRound(0);
+  }
+
+  // ─── SHARE ──────────────────────────────────────────────────────────────────
+  function buildShareCanvas() {
+    const W = 540, H = 960;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+
+    const bg    = '#F5F5F5', ink = '#1E1E1E';
+    const GREEN = '#14AE5C', BLUE = '#0D99FF', RED = '#F24822';
+
+    const total   = scores.reduce((a, b) => a + b, 0);
+    const rounded = Math.round(total * 10) / 10;
+    const verdict = document.getElementById('finalVerdict').textContent;
+
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+    // Dot grid
+    ctx.fillStyle = ink; ctx.globalAlpha = 0.07;
+    for (let x = 20; x < W; x += 20)
+      for (let y = 20; y < H; y += 20) {
+        ctx.beginPath(); ctx.arc(x, y, 1, 0, Math.PI * 2); ctx.fill();
+      }
+    ctx.globalAlpha = 1;
+
+    const sep = (y) => {
+      ctx.globalAlpha = 0.18; ctx.strokeStyle = ink; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(56, y); ctx.lineTo(W - 56, y); ctx.stroke();
+      ctx.globalAlpha = 1;
+    };
+
+    ctx.globalAlpha = 0.35; ctx.fillStyle = ink;
+    ctx.font = '400 13px "DM Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('DESIGN DUAL', W / 2, 90);
+
+    ctx.globalAlpha = 1; ctx.fillStyle = ink;
+    ctx.font = '700 80px "Playfair Display", serif';
+    ctx.fillText('Spaced', W / 2, 185);
+    sep(230);
+
+    const scoreColor = rounded >= 40 ? GREEN : rounded >= 25 ? ink : RED;
+    ctx.globalAlpha = 1; ctx.fillStyle = scoreColor;
+    ctx.font = '300 112px "DM Mono", monospace';
+    ctx.fillText(rounded.toFixed(1), W / 2, 365);
+
+    ctx.globalAlpha = 0.4; ctx.fillStyle = ink;
+    ctx.font = '400 17px "DM Mono", monospace';
+    ctx.fillText('/ 50.0 points', W / 2, 405);
+
+    ctx.globalAlpha = 1; ctx.fillStyle = ink;
+    ctx.font = 'italic 400 26px "Playfair Display", serif';
+    ctx.fillText(verdict, W / 2, 470);
+    sep(510);
+
+    const PAD = 56, barMax = W - PAD * 2 - 72, barH = 8, rowH = 52;
+    scores.forEach((s, i) => {
+      const y  = 538 + i * rowH;
+      const bc = s >= 8 ? GREEN : s >= 5 ? BLUE : RED;
+      ctx.globalAlpha = 0.4; ctx.fillStyle = ink;
+      ctx.font = '400 12px "DM Mono", monospace'; ctx.textAlign = 'left';
+      ctx.fillText('F' + (i + 1), PAD, y + barH);
+      ctx.globalAlpha = 0.12; ctx.fillStyle = ink;
+      ctx.fillRect(PAD + 28, y, barMax, barH);
+      ctx.globalAlpha = 1; ctx.fillStyle = bc;
+      ctx.fillRect(PAD + 28, y, (s / 10) * barMax, barH);
+      ctx.font = '400 13px "DM Mono", monospace'; ctx.textAlign = 'right';
+      ctx.fillText(s.toFixed(1), W - PAD, y + barH);
+    });
+
+    ctx.globalAlpha = 0.25; ctx.fillStyle = ink;
+    ctx.font = '400 14px "DM Mono", monospace'; ctx.textAlign = 'center';
+    ctx.fillText('designdual.com', W / 2, H - 52);
+
+    return cv;
+  }
+
+  async function shareResult() {
+    const btn = document.getElementById('shareBtn');
+    btn.disabled = true; btn.textContent = '...';
+    const cv = buildShareCanvas();
+    cv.toBlob(async blob => {
+      const file = new File([blob], 'spaced-designdual.png', { type: 'image/png' });
+      try {
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: 'Spaced · Design Dual' });
+        } else { throw new Error('no share'); }
+      } catch (e) {
+        if (e.name !== 'AbortError') {
+          const a = document.createElement('a');
+          a.href = cv.toDataURL('image/png'); a.download = 'spaced-designdual.png'; a.click();
+        }
+      }
+      btn.disabled = false; btn.textContent = 'Share';
+    }, 'image/png');
+  }
+
+  // ─── MULTIPLAYER MODULE ────────────────────────────────────────────────────
+  const ROOM_CODE = new URLSearchParams(location.search).get('room');
+
+  if (ROOM_CODE) {
+    let _lastState = null;
+    let _lastRound = -1;
+    let _gameInited = false;
+    let _roomSnap   = null;
+
+    // Skip start screen — game will init when Firebase fires
+    document.getElementById('startScreen').style.display = 'none';
+
+    tdSubscribeRoom(ROOM_CODE, room => {
+      if (!room) return;
+      _roomSnap = room;
+      const state   = room.state;
+      const isHost  = room.hostId === tdMyId();
+
+      // Initialize game UI once when first non-lobby state arrives
+      if (!_gameInited && state !== 'lobby') {
+        _gameInited = true;
+        selectedMode = room.mode;
+        buildRoundsSeeded(room.seed);
+        document.getElementById('gameArea').classList.remove('hidden');
+        document.getElementById('headerTagline').textContent = MODES[selectedMode].label + ' Mode';
+        buildRoundBar();
+      }
+
+      if (state === 'observe' && room.roundIndex !== _lastRound) {
+        _lastRound  = room.roundIndex;
+        _lastState  = 'observe';
+        _multiSubmitted = false;
+        document.getElementById('multiReview').classList.remove('show');
+        _clearMultiGhosts();
+        const remaining = Math.max(400, (room.phaseStart + room.phaseDur) - tdNow());
+        _multiObsDur = remaining;
+        loadRound(room.roundIndex);
+
+      } else if (state === 'guess' && _lastState !== 'guess') {
+        _lastState = 'guess';
+        const remaining = Math.max(400, (room.phaseStart + room.phaseDur) - tdNow());
+        _multiGuessDur = remaining;
+        revealGuessPhase();
+
+      } else if (state === 'review' && _lastState !== 'review') {
+        _lastState = 'review';
+        _showMultiReview(room, isHost);
+
+      } else if (state === 'final' && _lastState !== 'final') {
+        _lastState = 'final';
+        _showMultiFinal(room);
+
+      } else if (state === 'guess' && _multiSubmitted) {
+        // Live update: how many have submitted
+        firebase.database().ref(`rooms/${ROOM_CODE}/rounds/${room.roundIndex}`)
+          .once('value').then(s => {
+            const subs = s.val() || {};
+            const total = Object.keys(room.players || {}).length;
+            const done  = Object.values(subs).filter(p => p.submitted).length;
+            const btn = document.getElementById('btnNext');
+            if (btn) btn.textContent = `Waiting… ${done}/${total}`;
+          });
+      }
+    });
+
+    async function _showMultiReview(room, isHost) {
+      const [subSnap, allSnap] = await Promise.all([
+        firebase.database().ref(`rooms/${ROOM_CODE}/rounds/${room.roundIndex}`).once('value'),
+        firebase.database().ref(`rooms/${ROOM_CODE}/rounds`).once('value')
+      ]);
+      if (_lastState !== 'review') return;
+      const roundData = subSnap.val() || {};
+      const allRounds = allSnap.val() || {};
+      const myId = tdMyId();
+      const round = ROUNDS[room.roundIndex];
+
+      const GHOST_COLORS = ['#FF6B6B','#4ECDC4','#BB8FCE','#96CEB4','#F7DC6F','#85C1E9'];
+      const ranked = Object.entries(room.players || {}).map(([pid, p]) => {
+        let total = 0;
+        for (let i = 0; i <= room.roundIndex; i++) total += (allRounds[i]?.[pid]?.score) || 0;
+        let guess = null;
+        try { const g = roundData[pid]?.guess; if (g) guess = JSON.parse(g)?.guess ?? null; } catch(e) {}
+        return { pid, name: p.name, roundScore: roundData[pid]?.score ?? null,
+          total: Math.round(total * 10) / 10, isMe: pid === myId, guess };
+      }).sort((a, b) => b.total - a.total);
+
+      const colorMap = {};
+      ranked.filter(r => !r.isMe).forEach((r, i) => { colorMap[r.pid] = GHOST_COLORS[i % GHOST_COLORS.length]; });
+
+      // Show leaderboard in insightRows
+      document.getElementById('insightRows').innerHTML = ranked.map((r, i) =>
+        `<div class="insight-item">
+          <span class="insight-key" style="color:${r.isMe ? 'var(--accent-blue)' : (colorMap[r.pid]||'inherit')};">${i+1}. ${r.name}${r.isMe ? ' <small style="opacity:.4">you</small>' : ''}</span>
+          <span class="insight-val">${r.roundScore !== null ? '+'+r.roundScore.toFixed(1) : '—'} · ${r.total.toFixed(1)}</span>
+        </div>`).join('');
+
+      // btnNext: host advances, guest waits
+      const btn = document.getElementById('btnNext');
+      btn.disabled = !isHost;
+      btn.textContent = isHost ? 'Next Round →' : 'Waiting for host…';
+      btn.onclick = isHost ? window.mHostNext : null;
+    }
+
+    window.mHostNext = async function() {
+      const btn = document.getElementById('btnNext');
+      if (btn) { btn.disabled = true; btn.textContent = 'Loading next round…'; }
+      await tdNextRound(ROOM_CODE);
+      setTimeout(async () => {
+        const snap = await firebase.database().ref(`rooms/${ROOM_CODE}/state`).once('value');
+        if (snap.val() === 'review' && btn) {
+          btn.disabled = false; btn.textContent = 'Next Round →'; btn.onclick = window.mHostNext;
+        }
+      }, 3000);
+    };
+
+    function _clearMultiGhosts() {
+      document.querySelectorAll('[data-multi-ghost]').forEach(el => el.remove());
+      const sg = document.querySelector('.specimen-gap');
+      if (sg) { sg.style.gap = ''; sg.style.alignItems = ''; }
+    }
+
+    async function _showMultiFinal(room) {
+      document.getElementById('multiReview').classList.remove('show');
+      const localScores = scores.slice(); // snapshot before async
+      const allSnap = await firebase.database().ref(`rooms/${ROOM_CODE}/rounds`).once('value');
+      const allRounds = allSnap.val() || {};
+      const myId = tdMyId();
+
+      const ranked = Object.entries(room.players || {}).map(([pid, p]) => {
+        let total = 0;
+        const roundScores = [];
+        for (let i = 0; i < 5; i++) {
+          const s = (allRounds[i]?.[pid]?.score) || 0;
+          total += s; roundScores.push(s);
+        }
+        return { pid, name: p.name, total: Math.round(total * 10) / 10, roundScores, isMe: pid === myId };
+      }).sort((a, b) => b.total - a.total);
+
+      // Use locally-accumulated scores if available; fall back to Firebase
+      scores = (localScores.length === ROUNDS.length) ? localScores
+             : (ranked.find(r => r.isMe)?.roundScores || [0, 0, 0, 0, 0]);
+      showFinal();
+
+      setTimeout(() => {
+        const bd = document.getElementById('roundBreakdown');
+        if (!bd) return;
+        bd.insertAdjacentHTML('afterend', `
+          <div style="width:100%;border-top:1px solid var(--scene-color);padding-top:16px;margin-top:8px;">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;opacity:0.45;margin-bottom:10px;">Leaderboard</div>
+            ${ranked.map((r, i) => `
+              <div style="display:flex;align-items:baseline;gap:12px;padding:7px 0;border-bottom:1px solid var(--scene-color);">
+                <span style="font-size:10px;opacity:0.4;width:16px;">${i + 1}</span>
+                <span style="flex:1;font-size:12px;${r.isMe ? 'color:var(--accent-blue)' : ''}">${r.name}${r.isMe ? ' (you)' : ''}</span>
+                <span style="font-size:18px;">${r.total.toFixed(1)}</span>
+              </div>`).join('')}
+          </div>`);
+      }, 120);
+    }
+  }
+
+  // ─── CHALLENGE MODULE ──────────────────────────────────────────────────────
+  ;(function() {
+    const CCODE = new URLSearchParams(location.search).get('c');
+    let _chalData  = null;
+    let _myName    = localStorage.getItem('td-chal-name') || '';
+    let _crCode    = null;
+    let _pollTimer = null;
+    let _creating  = false;
+
+    // ── Visitor: fetch challenge and show intro screen ──────────────────────
+    if (CCODE) {
+      document.getElementById('startScreen').style.display = 'none';
+      tdInit();
+      tdFetchChallenge(CCODE).then(ch => {
+        if (!ch || ch.game !== 'spaced') {
+          document.getElementById('startScreen').style.display = '';
+          return;
+        }
+        _chalData = ch;
+        _crCode   = CCODE;
+        document.getElementById('chalCreatorName').textContent = ch.creatorName || 'Someone';
+        document.getElementById('chalModeBadge').textContent   = (ch.mode || 'medium') + ' mode';
+        if (_myName) document.getElementById('chalNameInp').value = _myName;
+        document.getElementById('challengeIntro').classList.remove('hidden');
+      }).catch(() => {
+        document.getElementById('startScreen').style.display = '';
+      });
+
+      document.getElementById('chalStartBtn').addEventListener('click', () => {
+        if (!_chalData) return;
+        const v = document.getElementById('chalNameInp').value.trim();
+        _myName = v || 'Anonymous';
+        if (v) localStorage.setItem('td-chal-name', v);
+        selectedMode = _chalData.mode || 'medium';
+        buildRoundsSeeded(_chalData.seed);
+        document.getElementById('challengeIntro').classList.add('hidden');
+        document.getElementById('gameArea').classList.remove('hidden');
+        document.getElementById('headerTagline').textContent = MODES[selectedMode].label + ' Mode';
+        buildRoundBar();
+        loadRound(0);
+      });
+    }
+
+    // ── Hook called by showFinal() ──────────────────────────────────────────
+    window._afterFinal = function() {
+      if (CCODE) {
+        _submitAndShow();
+      } else {
+        const row = document.getElementById('chalFinalRow');
+        if (row) row.classList.add('show');
+        const saved = localStorage.getItem('td-chal-name') || '';
+        const inp = document.getElementById('chalCreatorInp');
+        if (inp && saved) inp.value = saved;
+      }
+    };
+
+    async function _submitAndShow() {
+      const total   = scores.reduce((a, b) => a + b, 0);
+      const rounded = Math.round(total * 10) / 10;
+      await tdSubmitChallengeScore(_crCode, _myName, rounded, scores.slice());
+      _showResult();
+      _startPoll();
+    }
+
+    // ── Create challenge from final screen ──────────────────────────────────
+    window._challengeFromFinal = async function() {
+      if (_creating) return;
+      _creating = true;
+      const btn = document.getElementById('chalFinalBtn');
+      btn.textContent = 'Creating…'; btn.disabled = true;
+
+      const nameVal = (document.getElementById('chalCreatorInp').value || '').trim()
+                    || localStorage.getItem('td-chal-name') || 'Anonymous';
+      _myName = nameVal;
+      localStorage.setItem('td-chal-name', nameVal);
+
+      _crCode = await tdCreateChallenge('spaced', selectedMode, _gameSeed, nameVal);
+
+      const total   = scores.reduce((a, b) => a + b, 0);
+      const rounded = Math.round(total * 10) / 10;
+      await tdSubmitChallengeScore(_crCode, nameVal, rounded, scores.slice());
+
+      history.replaceState({}, '', '?c=' + _crCode);
+      _showResult();
+      _startPoll();
+      _creating = false;
+    };
+
+    // ── Render challenge result overlay ─────────────────────────────────────
+    async function _showResult() {
+      const overlay = document.getElementById('challengeResult');
+      overlay.classList.add('show');
+      document.getElementById('crCode').textContent = _crCode || '';
+
+      const url = location.origin + location.pathname + '?c=' + _crCode;
+      document.getElementById('crCopyBtn').onclick = () => {
+        navigator.clipboard.writeText(url).catch(() => {
+          const ta = document.createElement('textarea');
+          ta.value = url; document.body.appendChild(ta); ta.select();
+          document.execCommand('copy'); ta.remove();
+        });
+        const btn = document.getElementById('crCopyBtn');
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = 'Copy Link'; }, 2000);
+      };
+
+      const data = await tdFetchChallengeScores(_crCode);
+      _renderRows(data);
+    }
+
+    function _renderRows(data) {
+      const container = document.getElementById('crRows');
+      if (!container) return;
+      if (!data || data.length === 0) {
+        container.innerHTML = '<div class="cr-waiting">Waiting for players to join…</div>';
+        return;
+      }
+      container.innerHTML = data.map((row, i) => {
+        const isMe  = row.name === _myName;
+        const rHtml = (row.roundScores || []).map((s, ri) =>
+          `<span class="cr-rscore">F${ri + 1} ${Number(s).toFixed(1)}</span>`
+        ).join('');
+        return `<div class="cr-row">
+          <span class="cr-rank">${i + 1}</span>
+          <span class="cr-name${isMe ? ' is-me' : ''}">${row.name}${isMe ? ' <span style="font-size:9px;opacity:0.5;"> you</span>' : ''}</span>
+          <div class="cr-rounds">${rHtml}</div>
+          <span class="cr-total">${Number(row.score || 0).toFixed(1)}</span>
+        </div>`;
+      }).join('');
+    }
+
+    function _startPoll() {
+      clearInterval(_pollTimer);
+      _pollTimer = setInterval(async () => {
+        if (!document.getElementById('challengeResult').classList.contains('show')) return;
+        _renderRows(await tdFetchChallengeScores(_crCode));
+      }, 15000);
+    }
+
+    window._chalPlayAgain = function() {
+      clearInterval(_pollTimer);
+      history.replaceState({}, '', location.pathname);
+      document.getElementById('challengeResult').classList.remove('show');
+      document.getElementById('chalFinalRow').classList.remove('show');
+      restartGame();
+    };
+  })();
+
+</script>
+</body>
+</html>

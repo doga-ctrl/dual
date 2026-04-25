@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Design Dual — Design Perception Games</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --canvas-bg: #F5F5F5;
+    --artboard-bg: #FFFFFF;
+    --ink: #1E1E1E;
+    --mid: #8E8E8E;
+    --line: #E5E5E5;
+    --accent-blue: #0D99FF;
+    --accent-green: #14AE5C;
+    --accent-red: #F24822;
+    --mono: 'DM Mono', monospace;
+    --serif: 'Playfair Display', serif;
+  }
+
+  body {
+    background-color: var(--artboard-bg);
+    color: var(--ink);
+    font-family: var(--mono);
+    height: 100vh; height: 100dvh;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    background-image: radial-gradient(var(--line) 1px, transparent 0);
+    background-size: 20px 20px;
+  }
+
+  header {
+    padding: 16px 48px;
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid var(--line);
+    background: var(--artboard-bg);
+    flex-shrink: 0;
+  }
+  .logo { font-family: var(--serif); font-size: 28px; font-weight: 700; letter-spacing: -0.5px; line-height: 1; }
+  .logo span { font-style: italic; opacity: 0.45; }
+  .tagline { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--mid); }
+
+  main {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 0 48px; gap: 56px;
+  }
+  .hero-title {
+    font-family: var(--serif); font-size: clamp(52px, 7vw, 112px);
+    font-weight: 400; line-height: 1.0; letter-spacing: -2px; text-align: center;
+  }
+  .hero-title em { font-style: italic; color: var(--accent-blue); }
+
+  .game-list {
+    display: flex; flex-direction: column;
+    width: 100%; max-width: 640px;
+    border: 1px solid var(--line); background: var(--line); gap: 1px;
+  }
+  .game-item {
+    background: var(--artboard-bg);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 28px; cursor: pointer;
+    color: var(--ink); transition: background 0.12s;
+    text-decoration: none;
+  }
+  .game-item:hover { background: var(--ink); color: var(--artboard-bg); }
+  .game-item:hover .game-num,
+  .game-item:hover .game-tag { color: rgba(255,255,255,0.35); border-color: rgba(255,255,255,0.2); }
+  .game-item.disabled { pointer-events: none; opacity: 0.3; }
+  .game-item-left { display: flex; align-items: baseline; gap: 20px; }
+  .game-num { font-size: 10px; letter-spacing: 0.15em; color: var(--mid); transition: color 0.12s; flex-shrink: 0; }
+  .game-name { font-family: var(--serif); font-size: 22px; font-weight: 700; letter-spacing: -0.3px; line-height: 1; }
+  .game-tag {
+    font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--mid); border: 1px solid var(--line); padding: 3px 8px;
+    transition: color 0.12s, border-color 0.12s; flex-shrink: 0;
+  }
+
+  footer {
+    padding: 20px 48px; border-top: 1px solid var(--line);
+    display: flex; justify-content: space-between; flex-shrink: 0;
+  }
+  .footer-txt { font-size: 10px; color: var(--mid); letter-spacing: 0.05em; }
+
+  /* ── MODAL ── */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 200; opacity: 0; pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .modal-backdrop.open { opacity: 1; pointer-events: auto; }
+
+  .modal {
+    background: var(--artboard-bg);
+    border: 1px solid var(--line);
+    width: 100%; max-width: 480px; margin: 20px;
+    display: flex; flex-direction: column;
+    transform: translateY(12px); transition: transform 0.2s;
+  }
+  .modal-backdrop.open .modal { transform: translateY(0); }
+
+  .modal-header {
+    padding: 20px 28px 16px;
+    border-bottom: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .modal-game-name { font-family: var(--serif); font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
+  .modal-close {
+    font-size: 18px; cursor: pointer; color: var(--mid);
+    background: none; border: none; font-family: var(--mono); line-height: 1;
+    padding: 0;
+  }
+  .modal-close:hover { color: var(--ink); }
+
+  /* Step 1 — solo or multi */
+  .modal-step { padding: 24px 28px; display: flex; flex-direction: column; gap: 10px; }
+  .modal-step.hidden { display: none; }
+
+  .modal-btn {
+    width: 100%; padding: 14px 20px;
+    background: var(--ink); color: var(--artboard-bg);
+    border: 1px solid var(--ink); font-family: var(--mono);
+    font-size: 12px; letter-spacing: 0.1em; cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center;
+    transition: background 0.12s, color 0.12s;
+  }
+  .modal-btn:hover { background: transparent; color: var(--ink); }
+  .modal-btn.outline { background: transparent; color: var(--ink); }
+  .modal-btn.outline:hover { background: var(--ink); color: var(--artboard-bg); }
+  .modal-btn:disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
+  .modal-btn-hint { font-size: 9px; opacity: 0.5; letter-spacing: 0.05em; }
+
+  .modal-divider {
+    display: flex; align-items: center; gap: 12px;
+    font-size: 9px; color: var(--mid); letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .modal-divider::before, .modal-divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--line);
+  }
+
+  .modal-input {
+    width: 100%; padding: 12px 16px;
+    border: 1px solid var(--line); font-family: var(--mono); font-size: 13px;
+    background: var(--artboard-bg); color: var(--ink); outline: none;
+  }
+  .modal-input:focus { border-color: var(--ink); }
+  .modal-input.code-input {
+    text-transform: uppercase; letter-spacing: 0.3em;
+    font-size: 22px; text-align: center;
+  }
+
+  .modal-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--mid); }
+
+  /* Lobby (step 3) */
+  .modal-code-display {
+    text-align: center; padding: 20px 0 8px;
+  }
+  .modal-code-value {
+    font-family: var(--serif); font-size: 56px; font-weight: 700;
+    letter-spacing: 8px; line-height: 1;
+  }
+  .modal-code-sub { font-size: 10px; color: var(--mid); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 6px; }
+
+  .modal-player-list { display: flex; flex-direction: column; gap: 6px; min-height: 44px; }
+  .modal-player-row {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 12px; padding: 8px 12px; background: var(--canvas-bg);
+  }
+  .modal-player-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-green); flex-shrink: 0; }
+  .modal-player-you { font-size: 9px; color: var(--mid); letter-spacing: 0.08em; text-transform: uppercase; }
+
+  .modal-error { font-size: 11px; color: var(--accent-red); letter-spacing: 0.02em; min-height: 16px; }
+  .modal-status { font-size: 11px; color: var(--mid); letter-spacing: 0.02em; font-style: italic; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 640px) {
+    body { height: 100dvh; }
+    header { padding: max(14px, env(safe-area-inset-top, 14px)) 20px 14px; }
+    .logo  { font-size: 22px; }
+    .tagline { font-size: 10px; letter-spacing: 0.06em; }
+    main {
+      padding: 20px 20px max(20px, env(safe-area-inset-bottom, 20px));
+      gap: 32px;
+      justify-content: flex-start;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .hero-title { letter-spacing: -1px; }
+    .game-list { max-width: none; }
+    .game-item { padding: 16px 20px; }
+    .game-item-left { gap: 14px; }
+    .game-name { font-size: 18px; }
+    footer {
+      padding: 14px 20px max(14px, env(safe-area-inset-bottom, 14px));
+      gap: 12px; flex-wrap: wrap;
+    }
+    .modal-code-value { font-size: 40px; }
+    .modal {
+      max-height: calc(100dvh - 24px);
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      margin: 12px;
+    }
+    .modal-header { position: sticky; top: 0; background: var(--artboard-bg); z-index: 1; }
+    .modal-close {
+      font-size: 22px; padding: 4px 8px; min-width: 44px; min-height: 44px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .modal-input.code-input { font-size: 20px; }
+  }
+
+  @media (max-height: 500px) and (max-width: 900px) {
+    main {
+      padding: 12px 20px;
+      gap: 16px;
+      justify-content: flex-start;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .hero-title { font-size: 36px; letter-spacing: -1px; }
+    footer { padding: 10px 20px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Design<span> Dual</span></div>
+  <div class="tagline">Design Perception Games</div>
+</header>
+
+<main>
+  <h1 class="hero-title">Can your eye<br>be <em>trusted?</em></h1>
+
+  <div class="game-list">
+    <div class="game-item" onclick="openModal('spaced','spaced.html','Spaced')">
+      <div class="game-item-left">
+        <span class="game-num">01</span>
+        <span class="game-name">Spaced</span>
+      </div>
+      <span class="game-tag">Spacing</span>
+    </div>
+
+    <div class="game-item" onclick="openModal('centered','CENTERED.html','Centered')">
+      <div class="game-item-left">
+        <span class="game-num">02</span>
+        <span class="game-name">Centered</span>
+      </div>
+      <span class="game-tag">Alignment</span>
+    </div>
+
+    <div class="game-item" onclick="openModal('snap','snap.html','Snap')">
+      <div class="game-item-left">
+        <span class="game-num">03</span>
+        <span class="game-name">Snap</span>
+      </div>
+      <span class="game-tag">Alignment</span>
+    </div>
+
+    <div class="game-item" onclick="openModal('colored','colored.html','Colored')">
+      <div class="game-item-left">
+        <span class="game-num">04</span>
+        <span class="game-name">Colored</span>
+      </div>
+      <span class="game-tag">Color</span>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <a class="footer-txt" href="https://goodafternooncreative.com" target="_blank" rel="noopener" style="text-decoration:none;">Good Afternoon Games Presents</a>
+</footer>
+
+<!-- ── MODAL ── -->
+<div class="modal-backdrop" id="modalBackdrop" onclick="backdropClick(event)">
+  <div class="modal" id="modal">
+
+    <div class="modal-header">
+      <span class="modal-game-name" id="modalGameName">Spaced</span>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+
+    <!-- Step 1: Solo or Multi -->
+    <div class="modal-step" id="step1">
+      <button class="modal-btn" onclick="goSolo()">
+        Solo
+        <span class="modal-btn-hint">Play alone</span>
+      </button>
+      <button class="modal-btn outline" onclick="goStep(2)">
+        Multiplayer
+        <span class="modal-btn-hint">Create or join a room</span>
+      </button>
+    </div>
+
+    <!-- Step 2: Name + Create or Join -->
+    <div class="modal-step hidden" id="step2">
+      <div class="modal-lbl" style="margin-bottom:4px;">Your name</div>
+      <input class="modal-input" id="nameInput" placeholder="Enter your name" maxlength="20" oninput="onNameInput()">
+      <div class="modal-error" id="nameError"></div>
+      <div class="modal-divider" style="margin: 4px 0;">choose</div>
+      <button class="modal-btn" id="createBtn" onclick="createRoom()" disabled>
+        Create Room
+        <span class="modal-btn-hint">Get a room code to share</span>
+      </button>
+      <button class="modal-btn outline" id="joinFlowBtn" onclick="goStep(2.5)" disabled>
+        Join Room
+        <span class="modal-btn-hint">Enter a friend's code</span>
+      </button>
+    </div>
+
+    <!-- Step 2.5: Enter code to join -->
+    <div class="modal-step hidden" id="step2b">
+      <div class="modal-lbl" style="margin-bottom:4px;">Room code</div>
+      <input class="modal-input code-input" id="codeInput" placeholder="WXYZ" maxlength="4"
+             autocapitalize="characters" autocomplete="off" inputmode="text"
+             oninput="onCodeInput()">
+      <div class="modal-error" id="codeError"></div>
+      <button class="modal-btn" id="joinBtn" onclick="joinRoom()" disabled style="margin-top:4px;">
+        Join
+        <span class="modal-btn-hint">Enter the game lobby</span>
+      </button>
+      <button class="modal-btn outline" onclick="goStep(2)" style="margin-top:0;">
+        Back
+        <span class="modal-btn-hint"></span>
+      </button>
+    </div>
+
+    <!-- Step 3: Lobby (host waiting) -->
+    <div class="modal-step hidden" id="step3">
+      <div class="modal-code-display">
+        <div class="modal-code-value" id="lobbyCode">----</div>
+        <div class="modal-code-sub">Share this code with friends</div>
+      </div>
+      <button class="modal-btn outline" onclick="copyLink()" style="margin-bottom:4px;">
+        Copy invite link
+        <span class="modal-btn-hint" id="copyHint">Copy</span>
+      </button>
+      <div class="modal-lbl" style="margin: 8px 0 6px;">Players in lobby</div>
+      <div class="modal-player-list" id="lobbyPlayers"></div>
+      <div class="modal-error" id="lobbyError" style="margin-top:4px;"></div>
+      <button class="modal-btn" id="lobbyStartBtn" onclick="hostStart()" disabled style="margin-top:8px;">
+        Start Game
+        <span class="modal-btn-hint" id="lobbyStartHint">Waiting for players…</span>
+      </button>
+    </div>
+
+    <!-- Step 4: Guest waiting in lobby -->
+    <div class="modal-step hidden" id="step4">
+      <div class="modal-code-display">
+        <div class="modal-code-value" id="guestCode">----</div>
+        <div class="modal-code-sub">You're in the lobby</div>
+      </div>
+      <div class="modal-lbl" style="margin: 8px 0 6px;">Players in lobby</div>
+      <div class="modal-player-list" id="guestPlayers"></div>
+      <div class="modal-status" style="margin-top:12px;">Waiting for the host to start the game…</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Firebase CDN -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script src="room.js"></script>
+<script>
+let _currentGame  = '';   // 'spaced' | 'centered' | 'snap'
+let _currentFile  = '';   // 'spaced.html' etc.
+let _currentName  = '';   // modal display name
+let _roomCode     = null;
+let _roomUnsub    = null;
+let _hostMode     = null; // chosen mode while hosting
+let _isHost       = false;
+
+function openModal(game, file, name) {
+  _currentGame = game;
+  _currentFile = file;
+  _currentName = name;
+  _roomCode    = null;
+  _isHost      = false;
+  document.getElementById('modalGameName').textContent = name;
+  showStep(1);
+  document.getElementById('modalBackdrop').classList.add('open');
+  // Pre-fill name if remembered
+  const saved = tdMyName();
+  if (saved) {
+    document.getElementById('nameInput').value = saved;
+    onNameInput();
+  }
+}
+
+function closeModal() {
+  document.getElementById('modalBackdrop').classList.remove('open');
+  if (_roomUnsub) { _roomUnsub(); _roomUnsub = null; }
+}
+
+function backdropClick(e) {
+  if (e.target === document.getElementById('modalBackdrop')) closeModal();
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+});
+
+function showStep(s) {
+  ['step1','step2','step2b','step3','step4'].forEach(id => {
+    document.getElementById(id).classList.add('hidden');
+  });
+  if (s === 1)   document.getElementById('step1').classList.remove('hidden');
+  if (s === 2)   document.getElementById('step2').classList.remove('hidden');
+  if (s === 2.5) document.getElementById('step2b').classList.remove('hidden');
+  if (s === 3)   document.getElementById('step3').classList.remove('hidden');
+  if (s === 4)   document.getElementById('step4').classList.remove('hidden');
+}
+
+function goStep(s) { showStep(s); }
+
+function goSolo() {
+  closeModal();
+  window.location.href = _currentFile;
+}
+
+function onNameInput() {
+  const v = document.getElementById('nameInput').value.trim();
+  document.getElementById('nameError').textContent = '';
+  document.getElementById('createBtn').disabled = v.length < 1;
+  document.getElementById('joinFlowBtn').disabled = v.length < 1;
+}
+
+function onCodeInput() {
+  const v = document.getElementById('codeInput').value.trim();
+  document.getElementById('codeError').textContent = '';
+  document.getElementById('joinBtn').disabled = v.length < 4;
+}
+
+async function createRoom() {
+  const name = document.getElementById('nameInput').value.trim();
+  if (!name) return;
+  document.getElementById('createBtn').disabled = true;
+  document.getElementById('createBtn').textContent = 'Creating…';
+
+  try {
+    _roomCode = await tdCreateRoom(_currentGame, name);
+    _isHost   = true;
+    document.getElementById('lobbyCode').textContent = _roomCode;
+    document.getElementById('guestCode').textContent  = _roomCode;
+    showStep(3);
+    subscribeToLobby();
+  } catch(e) {
+    document.getElementById('nameError').textContent = 'Failed to create room. Try again.';
+    document.getElementById('createBtn').disabled = false;
+    document.getElementById('createBtn').textContent = 'Create Room';
+  }
+}
+
+async function joinRoom() {
+  const name = document.getElementById('nameInput').value.trim() || tdMyName();
+  const code = document.getElementById('codeInput').value.trim().toUpperCase();
+  if (!code || code.length < 4) return;
+  document.getElementById('joinBtn').disabled = true;
+  document.getElementById('codeError').textContent = '';
+
+  const res = await tdJoinRoom(code, name);
+  if (res.error) {
+    document.getElementById('codeError').textContent = res.error;
+    document.getElementById('joinBtn').disabled = false;
+    return;
+  }
+  _roomCode = code;
+  _isHost   = false;
+  document.getElementById('guestCode').textContent = code;
+  showStep(4);
+  subscribeToLobby();
+}
+
+function subscribeToLobby() {
+  if (_roomUnsub) _roomUnsub();
+  _roomUnsub = tdSubscribeRoom(_roomCode, room => {
+    if (!room) return;
+
+    // Once the host has started the game, redirect everyone
+    if (room.state !== 'lobby') {
+      if (_roomUnsub) { _roomUnsub(); _roomUnsub = null; }
+      window.location.href = `${_currentFile}?room=${_roomCode}`;
+      return;
+    }
+
+    const myId   = tdMyId();
+    const players = Object.entries(room.players || {}).filter(([, p]) => p.online !== false);
+    const isHost  = room.hostId === myId;
+
+    // Render player list (both host and guest steps)
+    const html = players.map(([pid, p]) => `
+      <div class="modal-player-row">
+        <span class="modal-player-dot"></span>
+        <span>${p.name}</span>
+        ${pid === myId ? '<span class="modal-player-you">you</span>' : ''}
+        ${pid === room.hostId ? '<span class="modal-player-you">host</span>' : ''}
+      </div>`).join('');
+
+    if (isHost) {
+      document.getElementById('lobbyPlayers').innerHTML = html;
+      const canStart = players.length >= 1;
+      document.getElementById('lobbyStartBtn').disabled = !canStart;
+      document.getElementById('lobbyStartHint').textContent =
+        canStart ? `${players.length} player${players.length > 1 ? 's' : ''} ready` : 'Waiting for players…';
+    } else {
+      document.getElementById('guestPlayers').innerHTML = html;
+    }
+  });
+}
+
+function hostStart() {
+  if (_currentGame === 'colored') {
+    _modeChosen = 'medium';
+    confirmStart();
+    return;
+  }
+  openModeSelect();
+}
+
+let _modeChosen = null;
+
+function openModeSelect() {
+  // Replace start button area with mode choice
+  const zone = document.getElementById('lobbyStartBtn').parentElement;
+  zone.innerHTML = `
+    <div class="modal-lbl" style="margin-bottom:8px;">Select difficulty</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <button class="modal-btn outline" id="mEasy"   onclick="pickMode('easy')"   style="flex:1;justify-content:center;">Easy</button>
+      <button class="modal-btn outline" id="mMedium" onclick="pickMode('medium')" style="flex:1;justify-content:center;">Medium</button>
+      <button class="modal-btn outline" id="mHard"   onclick="pickMode('hard')"   style="flex:1;justify-content:center;">Hard</button>
+    </div>
+    <button class="modal-btn" id="goStartBtn" onclick="confirmStart()" disabled style="margin-top:0;">
+      Start Game
+      <span class="modal-btn-hint">All players will be redirected</span>
+    </button>`;
+}
+
+function pickMode(m) {
+  _modeChosen = m;
+  ['easy','medium','hard'].forEach(x => {
+    const btn = document.getElementById('m' + x.charAt(0).toUpperCase() + x.slice(1));
+    if (btn) btn.className = 'modal-btn' + (x === m ? '' : ' outline');
+  });
+  document.getElementById('goStartBtn').disabled = false;
+}
+
+async function confirmStart() {
+  if (!_modeChosen || !_roomCode) return;
+  const btn = document.getElementById('goStartBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Starting…'; }
+  await tdStartGame(_roomCode, _modeChosen);
+  // subscribeToLobby will detect state !== 'lobby' and redirect
+}
+
+function copyLink() {
+  const url = `${location.origin}${location.pathname.replace('index.html', '')}${_currentFile}?room=${_roomCode}`;
+  navigator.clipboard.writeText(url).then(() => {
+    document.getElementById('copyHint').textContent = 'Copied!';
+    setTimeout(() => { document.getElementById('copyHint').textContent = 'Click to copy'; }, 2000);
+  });
+}
+</script>
+</body>
+</html>
